@@ -98,7 +98,7 @@ def _upgrade_message(feature: str) -> str:
     """Generate a tasteful upgrade prompt."""
     return (
         f"\n\n─── 🔒 ───\n"
-        f"{feature} is available on WEMS Premium ($29/mo).\n"
+        f"{feature} is available on WEMS Premium ($24.99/mo).\n"
         f"Unlock full history, all regions, custom alerts, and real-time updates.\n"
         f"→ https://wems.dev/premium"
     )
