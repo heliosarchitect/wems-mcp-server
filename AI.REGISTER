@@ -1,0 +1,49 @@
+# AI.REGISTER — WEMS MCP Server
+
+## Environment Variables
+[required] WEMS_API_KEY — Premium tier API key. Without it, server runs in free tier.
+[optional] WEMS_PREMIUM_KEYS — Comma-separated list of valid premium keys for local validation.
+[optional] WEMS_CONFIG — Path to config.yaml (default: ./config.yaml)
+[optional] STRIPE_SECRET_KEY — Stripe API key for payment validation. Keys prefixed wems_live_ are auto-premium.
+
+## CLI Commands
+[cmd] wems — Start MCP server (stdio transport). Reads config from WEMS_CONFIG or ./config.yaml.
+[cmd] python3 -m pytest tests/ -v — Run full test suite (112 tests).
+
+## Configuration File
+[config] config.yaml — Alert thresholds and webhook URLs
+  alerts.earthquake.min_magnitude: float (default: 6.0) — Minimum magnitude to trigger webhook
+  alerts.earthquake.webhook: URL — Webhook endpoint for earthquake alerts
+  alerts.solar.min_kp_index: float (default: 7.0) — Minimum K-index to trigger webhook
+  alerts.solar.webhook: URL — Webhook endpoint for solar alerts
+  alerts.volcano.alert_levels: list (default: ["WARNING", "WATCH"]) — Levels that trigger webhook
+  alerts.volcano.webhook: URL — Webhook endpoint for volcano alerts
+  alerts.tsunami.enabled: bool (default: true) — Whether tsunami alerts fire
+  alerts.tsunami.webhook: URL — Webhook endpoint for tsunami alerts
+
+## Data Sources
+[source] USGS Earthquake Feed — https://earthquake.usgs.gov/earthquakes/feed/v1.0/ — Real-time earthquake data (GeoJSON)
+[source] NOAA SWPC K-Index — https://services.swpc.noaa.gov/json/boulder_k_index_1m.json — Geomagnetic activity
+[source] NOAA SWPC Events — https://services.swpc.noaa.gov/json/edited_events.json — Space weather events
+[source] NOAA SWPC Forecast — https://services.swpc.noaa.gov/text/3-day-forecast.txt — 3-day space weather forecast (premium)
+[source] Smithsonian GVP — https://volcano.si.edu/reports_weekly.cfm?format=json — Weekly volcanic activity
+[source] NOAA PTWC — https://www.tsunami.gov/events/json/events.json — Tsunami warnings
+
+## MCP Tools (exposed to AI agents)
+[tool] check_earthquakes — Recent earthquake activity with magnitude/time/region filtering
+[tool] check_solar — Space weather: K-index, solar flares, CMEs, optional 3-day forecast
+[tool] check_volcanoes — Volcanic activity with alert level and region filtering
+[tool] check_tsunamis — Tsunami warnings by ocean basin
+[tool] configure_alerts — Update alert thresholds and webhook URLs (premium only)
+
+## Tier Limits Summary
+[tier] free — M4.5+, hour/day only, 5 results, 3 solar events, WARNING volcanoes, Pacific tsunamis, no configure_alerts
+[tier] premium — M1.0+, all periods, 50 results, 25 solar events, all volcano levels + regions, all ocean basins, configure_alerts
+
+## Integration Points
+[integrates] MCP Protocol — stdio transport, compatible with Claude Desktop, any MCP client
+[integrates] Webhooks — HTTP POST to configured URLs when alert thresholds exceeded
+[integrates] Stripe — Optional payment validation via key prefix (wems_live_*)
+
+## Ports / Network
+[port] none — MCP stdio transport (no HTTP server). Outbound HTTPS to data source APIs.

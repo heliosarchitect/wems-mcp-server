@@ -1,0 +1,39 @@
+# AI.INDEX — WEMS MCP Server
+
+## Classes
+[class] WemsServer → wems_mcp_server.py:109 — Main MCP server. Handles config, HTTP client, tier resolution, tool registration.
+
+## Functions — Core Tools
+[fn] _check_earthquakes → wems_mcp_server.py:175 — USGS earthquake feed. Params: min_magnitude, time_period, region, lat/lon/radius (premium).
+[fn] _check_solar → wems_mcp_server.py:280 — NOAA SWPC K-index + space weather events. Params: event_types, include_forecast (premium).
+[fn] _check_volcanoes → wems_mcp_server.py:380 — Smithsonian GVP volcanic activity. Params: alert_levels, region (premium).
+[fn] _check_tsunamis → wems_mcp_server.py:430 — NOAA tsunami warnings. Params: regions.
+[fn] _configure_alerts → wems_mcp_server.py:500 — Update alert thresholds (premium only).
+
+## Functions — Tier System
+[fn] _get_tier → wems_mcp_server.py:72 — Resolves user tier from API key. Checks WEMS_PREMIUM_KEYS env, then Stripe prefix.
+[fn] _tier_limits → wems_mcp_server.py:93 — Returns limit dict for a tier.
+[fn] _upgrade_message → wems_mcp_server.py:98 — Generates upgrade prompt string for gated features.
+
+## Functions — Alert Webhooks
+[fn] _check_earthquake_alert → wems_mcp_server.py:510 — Fires webhook if quake exceeds configured magnitude.
+[fn] _check_solar_alert → wems_mcp_server.py:525 — Fires webhook if K-index exceeds threshold.
+[fn] _check_volcano_alert → wems_mcp_server.py:540 — Fires webhook if alert level is monitored.
+[fn] _check_tsunami_alert → wems_mcp_server.py:555 — Fires webhook for any tsunami warning.
+
+## Constants
+[const] TIER_FREE → wems_mcp_server.py:22 — "free" tier identifier
+[const] TIER_PREMIUM → wems_mcp_server.py:23 — "premium" tier identifier
+[const] TIER_LIMITS → wems_mcp_server.py:25 — Dict of all tier-specific limits (result counts, features, regions)
+
+## Test Suites
+[test] TestCheckEarthquakes → tests/test_earthquakes.py:14 — Earthquake tool: params, filtering, icons, time periods, tier limits
+[test] TestEarthquakeAlerts → tests/test_earthquakes.py:180 — Earthquake webhook: thresholds, payloads, failures
+[test] TestCheckSolar → tests/test_solar.py:14 — Solar tool: K-index levels, events, filtering, tier limits
+[test] TestSolarAlerts → tests/test_solar.py:200 — Solar webhook: thresholds, severity levels
+[test] TestCheckVolcanoes → tests/test_volcanoes.py:14 — Volcano tool: alert levels, regions, tier gating
+[test] TestVolcanoAlerts → tests/test_volcanoes.py:150 — Volcano webhook: monitored levels, payloads
+[test] TestCheckTsunamis → tests/test_tsunamis.py:14 — Tsunami tool: regions, warnings, time filtering, tier limits
+[test] TestTsunamiAlerts → tests/test_tsunamis.py:200 — Tsunami webhook: enabled/disabled, payloads
+[test] TestWemsServerConfiguration → tests/test_server.py:10 — Server init, config loading, empty config
+[test] TestConfigureAlerts → tests/test_configure_alerts.py:10 — Alert config updates, unknown types
