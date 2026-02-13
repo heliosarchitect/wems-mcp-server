@@ -241,7 +241,7 @@ class MockResponse:
 
 @pytest.fixture
 async def wems_server(temp_config_file):
-    """Create a WEMS server instance for testing."""
+    """Create a WEMS server instance for testing (free tier)."""
     server = WemsServer(temp_config_file)
     yield server
     await server.http_client.aclose()
@@ -249,8 +249,30 @@ async def wems_server(temp_config_file):
 
 @pytest.fixture 
 async def wems_server_default():
-    """Create a WEMS server instance with default config."""
+    """Create a WEMS server instance with default config (free tier)."""
     server = WemsServer()  # No config file - uses defaults
+    yield server
+    await server.http_client.aclose()
+
+
+@pytest.fixture
+async def wems_server_premium(temp_config_file, monkeypatch):
+    """Create a WEMS server instance with premium tier."""
+    monkeypatch.setenv("WEMS_API_KEY", "test_premium_key")
+    monkeypatch.setenv("WEMS_PREMIUM_KEYS", "test_premium_key")
+    server = WemsServer(temp_config_file)
+    assert server.tier == "premium", f"Expected premium tier, got {server.tier}"
+    yield server
+    await server.http_client.aclose()
+
+
+@pytest.fixture
+async def wems_server_free(temp_config_file, monkeypatch):
+    """Create a WEMS server instance explicitly on free tier."""
+    monkeypatch.delenv("WEMS_API_KEY", raising=False)
+    monkeypatch.delenv("WEMS_PREMIUM_KEYS", raising=False)
+    server = WemsServer(temp_config_file)
+    assert server.tier == "free", f"Expected free tier, got {server.tier}"
     yield server
     await server.http_client.aclose()
 

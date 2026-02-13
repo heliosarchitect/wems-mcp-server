@@ -152,8 +152,8 @@ class TestCheckSolar:
             assert "This should not appear" not in text
     
     @pytest.mark.asyncio
-    async def test_check_solar_event_icons(self, wems_server_default, mock_solar_kindex_response):
-        """Test that different event types get appropriate icons."""
+    async def test_check_solar_event_icons(self, wems_server_premium, mock_solar_kindex_response):
+        """Test that different event types get appropriate icons (premium sees all)."""
         events_data = [
             {"type": "Solar Flare", "message": "Flare event", "begin_time": datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')},
             {"type": "CME", "message": "CME event", "begin_time": datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')},
@@ -161,29 +161,27 @@ class TestCheckSolar:
             {"type": "Other Event", "message": "Other event", "begin_time": datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')}
         ]
         
-        with patch.object(wems_server_default.http_client, 'get', new_callable=AsyncMock) as mock_get:
+        with patch.object(wems_server_premium.http_client, 'get', new_callable=AsyncMock) as mock_get:
             mock_get.side_effect = [
                 MockResponse(mock_solar_kindex_response),
                 MockResponse(events_data)
             ]
             
-            result = await wems_server_default._check_solar()
+            result = await wems_server_premium._check_solar()
             
             assert_textcontent_result(result)
             text = result[0].text
-            # All event messages should be present
             assert "Flare event" in text
             assert "CME event" in text
             assert "Radio event" in text
             assert "Other event" in text
     
     @pytest.mark.asyncio
-    async def test_check_solar_limits_to_5_events(self, wems_server_default, mock_solar_kindex_response):
-        """Test that recent events are limited to 5 most recent."""
+    async def test_check_solar_free_tier_limits_to_3_events(self, wems_server_free, mock_solar_kindex_response):
+        """Test that free tier limits recent events to 3."""
         now = datetime.now(timezone.utc)
         events_data = []
         
-        # Create 7 recent events
         for i in range(7):
             event_time = now.replace(hour=now.hour-i) if now.hour >= i else now.replace(day=now.day-1, hour=24+now.hour-i)
             events_data.append({
@@ -192,24 +190,53 @@ class TestCheckSolar:
                 "begin_time": event_time.strftime('%Y-%m-%dT%H:%M:%SZ')
             })
         
-        with patch.object(wems_server_default.http_client, 'get', new_callable=AsyncMock) as mock_get:
+        with patch.object(wems_server_free.http_client, 'get', new_callable=AsyncMock) as mock_get:
             mock_get.side_effect = [
                 MockResponse(mock_solar_kindex_response),
                 MockResponse(events_data)
             ]
             
-            result = await wems_server_default._check_solar()
+            result = await wems_server_free._check_solar()
             
             assert_textcontent_result(result)
             text = result[0].text
             
-            # Should contain first 5 events (most recent)
-            for i in range(5):
+            # Free tier: max 3 events shown
+            for i in range(3):
                 assert f"Event message {i}" in text
-            
-            # Should not contain the last 2 events
-            for i in range(5, 7):
+            for i in range(3, 7):
                 assert f"Event message {i}" not in text
+            assert "more" in text
+            assert "Premium" in text
+    
+    @pytest.mark.asyncio
+    async def test_check_solar_premium_shows_all_events(self, wems_server_premium, mock_solar_kindex_response):
+        """Test that premium tier shows up to 25 events."""
+        now = datetime.now(timezone.utc)
+        events_data = []
+        
+        for i in range(7):
+            event_time = now.replace(hour=now.hour-i) if now.hour >= i else now.replace(day=now.day-1, hour=24+now.hour-i)
+            events_data.append({
+                "type": f"Event {i}",
+                "message": f"Event message {i}",
+                "begin_time": event_time.strftime('%Y-%m-%dT%H:%M:%SZ')
+            })
+        
+        with patch.object(wems_server_premium.http_client, 'get', new_callable=AsyncMock) as mock_get:
+            mock_get.side_effect = [
+                MockResponse(mock_solar_kindex_response),
+                MockResponse(events_data)
+            ]
+            
+            result = await wems_server_premium._check_solar()
+            
+            assert_textcontent_result(result)
+            text = result[0].text
+            
+            # Premium: all 7 events should be shown
+            for i in range(7):
+                assert f"Event message {i}" in text
     
     @pytest.mark.asyncio
     async def test_check_solar_kindex_http_error(self, wems_server_default):

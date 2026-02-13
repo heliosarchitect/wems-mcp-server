@@ -110,12 +110,11 @@ class TestCheckTsunamis:
             assert "Old Tsunami Location" not in text
     
     @pytest.mark.asyncio
-    async def test_check_tsunamis_limits_to_5_warnings(self, wems_server_default):
-        """Test that tsunami warnings are limited to 5 most recent."""
+    async def test_check_tsunamis_free_tier_limits_to_3_warnings(self, wems_server_free):
+        """Test that free tier limits tsunami warnings to 3."""
         now = datetime.now(timezone.utc)
         tsunami_data = []
         
-        # Create 7 recent warnings
         for i in range(7):
             event_time = now.replace(hour=now.hour-i) if now.hour >= i else now.replace(day=now.day-1, hour=24+now.hour-i)
             tsunami_data.append({
@@ -126,21 +125,48 @@ class TestCheckTsunamis:
                 "status": "active"
             })
         
-        with patch.object(wems_server_default.http_client, 'get', new_callable=AsyncMock) as mock_get:
+        with patch.object(wems_server_free.http_client, 'get', new_callable=AsyncMock) as mock_get:
             mock_get.return_value = MockResponse(tsunami_data)
             
-            result = await wems_server_default._check_tsunamis()
+            result = await wems_server_free._check_tsunamis()
             
             assert_textcontent_result(result)
             text = result[0].text
             
-            # Should contain first 5 warnings (most recent)
-            for i in range(5):
+            # Free tier: max 3 results
+            for i in range(3):
                 assert f"Tsunami Location {i}" in text
-            
-            # Should not contain the last 2 warnings
-            for i in range(5, 7):
+            for i in range(3, 7):
                 assert f"Tsunami Location {i}" not in text
+            assert "more" in text
+            assert "Premium" in text
+    
+    @pytest.mark.asyncio
+    async def test_check_tsunamis_premium_shows_all_warnings(self, wems_server_premium):
+        """Test that premium tier shows up to 25 warnings."""
+        now = datetime.now(timezone.utc)
+        tsunami_data = []
+        
+        for i in range(7):
+            event_time = now.replace(hour=now.hour-i) if now.hour >= i else now.replace(day=now.day-1, hour=24+now.hour-i)
+            tsunami_data.append({
+                "location": f"Tsunami Location {i}",
+                "magnitude": f"{6.0 + i * 0.1}",
+                "time": event_time.strftime('%Y-%m-%dT%H:%M:%SZ'),
+                "updated": now.strftime('%Y-%m-%dT%H:%M:%SZ'),
+                "status": "active"
+            })
+        
+        with patch.object(wems_server_premium.http_client, 'get', new_callable=AsyncMock) as mock_get:
+            mock_get.return_value = MockResponse(tsunami_data)
+            
+            result = await wems_server_premium._check_tsunamis()
+            
+            assert_textcontent_result(result)
+            text = result[0].text
+            
+            for i in range(7):
+                assert f"Tsunami Location {i}" in text
     
     @pytest.mark.asyncio
     async def test_check_tsunamis_time_formatting(self, wems_server_default):

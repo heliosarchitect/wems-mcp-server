@@ -1,0 +1,677 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WEMS - World Event Monitoring System</title>
+    <meta name="description" content="Real-time natural hazard monitoring for AI agents. Monitor earthquakes, tsunamis, volcanoes, and solar events with configurable alerts.">
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E🌍%3C/text%3E%3C/svg%3E">
+    <style>
+        :root {
+            --primary-color: #2563eb;
+            --primary-dark: #1d4ed8;
+            --success-color: #059669;
+            --warning-color: #d97706;
+            --danger-color: #dc2626;
+            --text-primary: #111827;
+            --text-secondary: #6b7280;
+            --bg-primary: #ffffff;
+            --bg-secondary: #f9fafb;
+            --border-color: #e5e7eb;
+            --gradient-1: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            --gradient-2: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            --gradient-3: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: var(--text-primary);
+            background: var(--bg-primary);
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 2rem;
+        }
+
+        /* Header */
+        .header {
+            background: var(--gradient-1);
+            color: white;
+            padding: 4rem 0;
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .header::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: url('data:image/svg+xml,%3Csvg width="60" height="60" viewBox="0 0 60 60" xmlns="http://www.w3.org/2000/svg"%3E%3Cg fill="none" fill-rule="evenodd"%3E%3Cg fill="%239C92AC" fill-opacity="0.1"%3E%3Ccircle cx="30" cy="30" r="4"/%3E%3C/g%3E%3C/g%3E%3C/svg%3E');
+            animation: float 20s infinite linear;
+        }
+
+        @keyframes float {
+            0% { transform: translateX(0); }
+            100% { transform: translateX(-60px); }
+        }
+
+        .hero-content {
+            position: relative;
+            z-index: 1;
+        }
+
+        .hero-title {
+            font-size: 3.5rem;
+            font-weight: 700;
+            margin-bottom: 1rem;
+            line-height: 1.1;
+        }
+
+        .hero-subtitle {
+            font-size: 1.25rem;
+            margin-bottom: 2rem;
+            opacity: 0.95;
+            max-width: 600px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        .hero-badges {
+            display: flex;
+            gap: 1rem;
+            justify-content: center;
+            flex-wrap: wrap;
+            margin-bottom: 3rem;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 0.5rem 1rem;
+            background: rgba(255,255,255,0.2);
+            border-radius: 50px;
+            font-size: 0.875rem;
+            font-weight: 500;
+            backdrop-filter: blur(10px);
+        }
+
+        .cta-buttons {
+            display: flex;
+            gap: 1rem;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            display: inline-block;
+            padding: 1rem 2rem;
+            font-size: 1.1rem;
+            font-weight: 600;
+            text-decoration: none;
+            border-radius: 8px;
+            transition: all 0.3s ease;
+            border: none;
+            cursor: pointer;
+        }
+
+        .btn-primary {
+            background: white;
+            color: var(--primary-color);
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(0,0,0,0.3);
+        }
+
+        .btn-secondary {
+            background: rgba(255,255,255,0.1);
+            color: white;
+            border: 2px solid rgba(255,255,255,0.3);
+        }
+
+        .btn-secondary:hover {
+            background: rgba(255,255,255,0.2);
+            border-color: rgba(255,255,255,0.5);
+        }
+
+        /* Features Section */
+        .features {
+            padding: 5rem 0;
+            background: var(--bg-secondary);
+        }
+
+        .section-title {
+            font-size: 2.5rem;
+            font-weight: 700;
+            text-align: center;
+            margin-bottom: 3rem;
+        }
+
+        .features-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 2rem;
+            margin-bottom: 4rem;
+        }
+
+        .feature-card {
+            background: white;
+            padding: 2rem;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+            text-align: center;
+            transition: transform 0.3s ease;
+        }
+
+        .feature-card:hover {
+            transform: translateY(-5px);
+        }
+
+        .feature-icon {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+            display: block;
+        }
+
+        .feature-title {
+            font-size: 1.25rem;
+            font-weight: 600;
+            margin-bottom: 1rem;
+            color: var(--text-primary);
+        }
+
+        .feature-description {
+            color: var(--text-secondary);
+            line-height: 1.6;
+        }
+
+        /* Data Sources */
+        .data-sources {
+            padding: 4rem 0;
+        }
+
+        .sources-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1.5rem;
+            margin-top: 2rem;
+        }
+
+        .source-card {
+            background: white;
+            padding: 1.5rem;
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+            text-align: center;
+        }
+
+        .source-icon {
+            font-size: 2rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .source-title {
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+        }
+
+        .source-org {
+            color: var(--text-secondary);
+            font-size: 0.875rem;
+        }
+
+        /* Pricing Section */
+        .pricing {
+            padding: 5rem 0;
+            background: var(--bg-secondary);
+        }
+
+        .pricing-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+            gap: 2rem;
+            max-width: 800px;
+            margin: 0 auto;
+        }
+
+        .pricing-card {
+            background: white;
+            padding: 2.5rem;
+            border-radius: 16px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            text-align: center;
+            position: relative;
+            border: 2px solid transparent;
+            transition: all 0.3s ease;
+        }
+
+        .pricing-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 20px 40px rgba(0,0,0,0.15);
+        }
+
+        .pricing-card.featured {
+            border-color: var(--primary-color);
+            transform: scale(1.05);
+        }
+
+        .pricing-badge {
+            position: absolute;
+            top: -12px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: var(--primary-color);
+            color: white;
+            padding: 0.5rem 1.5rem;
+            border-radius: 50px;
+            font-size: 0.875rem;
+            font-weight: 600;
+        }
+
+        .pricing-tier {
+            font-size: 1.5rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+        }
+
+        .pricing-price {
+            font-size: 3rem;
+            font-weight: 800;
+            color: var(--primary-color);
+            margin-bottom: 0.5rem;
+        }
+
+        .pricing-price .period {
+            font-size: 1rem;
+            color: var(--text-secondary);
+            font-weight: normal;
+        }
+
+        .pricing-description {
+            color: var(--text-secondary);
+            margin-bottom: 2rem;
+        }
+
+        .pricing-features {
+            list-style: none;
+            margin-bottom: 2rem;
+            text-align: left;
+        }
+
+        .pricing-features li {
+            padding: 0.5rem 0;
+            position: relative;
+            padding-left: 1.5rem;
+        }
+
+        .pricing-features li::before {
+            content: '✓';
+            position: absolute;
+            left: 0;
+            color: var(--success-color);
+            font-weight: bold;
+        }
+
+        .pricing-features li.unavailable {
+            color: var(--text-secondary);
+            text-decoration: line-through;
+        }
+
+        .pricing-features li.unavailable::before {
+            content: '✗';
+            color: var(--text-secondary);
+        }
+
+        /* Installation Section */
+        .installation {
+            padding: 4rem 0;
+        }
+
+        .install-tabs {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 2rem;
+        }
+
+        .tab-button {
+            padding: 1rem 2rem;
+            background: none;
+            border: none;
+            font-size: 1rem;
+            font-weight: 600;
+            color: var(--text-secondary);
+            cursor: pointer;
+            border-bottom: 2px solid transparent;
+            transition: all 0.3s ease;
+        }
+
+        .tab-button.active {
+            color: var(--primary-color);
+            border-bottom-color: var(--primary-color);
+        }
+
+        .code-block {
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 1.5rem;
+            border-radius: 8px;
+            font-family: 'Monaco', 'Consolas', monospace;
+            font-size: 0.9rem;
+            overflow-x: auto;
+            margin-bottom: 1rem;
+        }
+
+        /* Footer */
+        .footer {
+            background: var(--text-primary);
+            color: white;
+            padding: 3rem 0 1rem;
+            text-align: center;
+        }
+
+        .footer-links {
+            display: flex;
+            justify-content: center;
+            gap: 2rem;
+            margin-bottom: 2rem;
+            flex-wrap: wrap;
+        }
+
+        .footer-link {
+            color: white;
+            text-decoration: none;
+            font-weight: 500;
+            transition: opacity 0.3s ease;
+        }
+
+        .footer-link:hover {
+            opacity: 0.8;
+        }
+
+        .footer-copyright {
+            color: var(--text-secondary);
+            font-size: 0.875rem;
+        }
+
+        /* Responsive Design */
+        @media (max-width: 768px) {
+            .hero-title {
+                font-size: 2.5rem;
+            }
+
+            .container {
+                padding: 0 1rem;
+            }
+
+            .pricing-card.featured {
+                transform: none;
+            }
+
+            .cta-buttons {
+                flex-direction: column;
+                align-items: center;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Header -->
+    <header class="header">
+        <div class="container">
+            <div class="hero-content">
+                <h1 class="hero-title">🌍 WEMS</h1>
+                <p class="hero-subtitle">
+                    Real-time Natural Hazard Monitoring for AI Agents<br>
+                    Connect to earthquakes, tsunamis, volcanoes, and solar events
+                </p>
+                
+                <div class="hero-badges">
+                    <span class="badge">🌋 4 Data Sources</span>
+                    <span class="badge">⚡ Real-time</span>
+                    <span class="badge">🔔 Smart Alerts</span>
+                    <span class="badge">🐳 Docker Ready</span>
+                </div>
+                
+                <div class="cta-buttons">
+                    <a href="#installation" class="btn btn-primary">Get Started Free</a>
+                    <a href="https://github.com/heliosarchitect/wems-mcp-server" class="btn btn-secondary">View on GitHub</a>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Features -->
+    <section class="features">
+        <div class="container">
+            <h2 class="section-title">Why Choose WEMS?</h2>
+            
+            <div class="features-grid">
+                <div class="feature-card">
+                    <span class="feature-icon">🏛️</span>
+                    <h3 class="feature-title">Authoritative Data</h3>
+                    <p class="feature-description">
+                        Only official government and scientific sources: USGS, NOAA, Smithsonian GVP
+                    </p>
+                </div>
+                
+                <div class="feature-card">
+                    <span class="feature-icon">⚡</span>
+                    <h3 class="feature-title">Real-time Updates</h3>
+                    <p class="feature-description">
+                        Sub-minute latency for critical events with configurable monitoring intervals
+                    </p>
+                </div>
+                
+                <div class="feature-card">
+                    <span class="feature-icon">🎯</span>
+                    <h3 class="feature-title">Smart Filtering</h3>
+                    <p class="feature-description">
+                        Geographic regions, magnitude thresholds, event types - monitor what matters
+                    </p>
+                </div>
+                
+                <div class="feature-card">
+                    <span class="feature-icon">🔔</span>
+                    <h3 class="feature-title">Webhook Alerts</h3>
+                    <p class="feature-description">
+                        Instant notifications to your systems when critical events occur
+                    </p>
+                </div>
+                
+                <div class="feature-card">
+                    <span class="feature-icon">🔧</span>
+                    <h3 class="feature-title">Zero Setup</h3>
+                    <p class="feature-description">
+                        Works out-of-the-box with sensible defaults. No API keys required
+                    </p>
+                </div>
+                
+                <div class="feature-card">
+                    <span class="feature-icon">🤖</span>
+                    <h3 class="feature-title">MCP Compatible</h3>
+                    <p class="feature-description">
+                        Seamless integration with AI assistants via Model Context Protocol
+                    </p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Data Sources -->
+    <section class="data-sources">
+        <div class="container">
+            <h2 class="section-title">Trusted Data Sources</h2>
+            
+            <div class="sources-grid">
+                <div class="source-card">
+                    <div class="source-icon">🌍</div>
+                    <div class="source-title">Earthquakes</div>
+                    <div class="source-org">USGS Real-time</div>
+                </div>
+                
+                <div class="source-card">
+                    <div class="source-icon">🌊</div>
+                    <div class="source-title">Tsunamis</div>
+                    <div class="source-org">NOAA Warning Centers</div>
+                </div>
+                
+                <div class="source-card">
+                    <div class="source-icon">🌋</div>
+                    <div class="source-title">Volcanoes</div>
+                    <div class="source-org">Smithsonian GVP</div>
+                </div>
+                
+                <div class="source-card">
+                    <div class="source-icon">☀️</div>
+                    <div class="source-title">Solar Events</div>
+                    <div class="source-org">NOAA Space Weather</div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Pricing -->
+    <section class="pricing">
+        <div class="container">
+            <h2 class="section-title">Simple Pricing</h2>
+            
+            <div class="pricing-grid">
+                <div class="pricing-card">
+                    <div class="pricing-tier">Free</div>
+                    <div class="pricing-price">$0<span class="period">/month</span></div>
+                    <div class="pricing-description">Perfect for getting started</div>
+                    
+                    <ul class="pricing-features">
+                        <li>Basic earthquake data</li>
+                        <li>Basic solar weather</li>
+                        <li>Basic volcano alerts</li>
+                        <li>Basic tsunami warnings</li>
+                        <li>Community support</li>
+                        <li class="unavailable">Webhook notifications</li>
+                        <li class="unavailable">Geographic filtering</li>
+                        <li class="unavailable">Priority data access</li>
+                        <li class="unavailable">Advanced thresholds</li>
+                    </ul>
+                    
+                    <a href="#installation" class="btn btn-secondary">Get Started</a>
+                </div>
+                
+                <div class="pricing-card featured">
+                    <div class="pricing-badge">Most Popular</div>
+                    <div class="pricing-tier">Pro</div>
+                    <div class="pricing-price">$29<span class="period">/month</span></div>
+                    <div class="pricing-description">For production systems</div>
+                    
+                    <ul class="pricing-features">
+                        <li>All earthquake data</li>
+                        <li>All solar weather data</li>
+                        <li>All volcano data</li>
+                        <li>All tsunami data</li>
+                        <li>Webhook notifications</li>
+                        <li>Geographic filtering</li>
+                        <li>Priority data access</li>
+                        <li>Advanced thresholds</li>
+                        <li>Premium support</li>
+                        <li>99.9% uptime SLA</li>
+                    </ul>
+                    
+                    <a href="mailto:heliosarchitectlbf@gmail.com?subject=WEMS Pro Interest" class="btn btn-primary">Contact Sales</a>
+                </div>
+            </div>
+            
+            <div style="text-align: center; margin-top: 2rem; color: var(--text-secondary);">
+                <p>💡 <strong>Pro tier coming soon!</strong> Email us to be notified when it's available.</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- Installation -->
+    <section class="installation" id="installation">
+        <div class="container">
+            <h2 class="section-title">Quick Installation</h2>
+            
+            <div class="install-tabs">
+                <button class="tab-button active" onclick="showTab('pip')">pip install</button>
+                <button class="tab-button" onclick="showTab('docker')">Docker</button>
+                <button class="tab-button" onclick="showTab('source')">From Source</button>
+            </div>
+            
+            <div id="pip-tab" class="tab-content">
+                <div class="code-block">pip install wems-mcp-server
+python -m wems_mcp_server</div>
+            </div>
+            
+            <div id="docker-tab" class="tab-content" style="display: none;">
+                <div class="code-block">docker pull ghcr.io/heliosarchitect/wems-mcp-server:latest
+docker run -p 8080:8080 ghcr.io/heliosarchitect/wems-mcp-server:latest</div>
+            </div>
+            
+            <div id="source-tab" class="tab-content" style="display: none;">
+                <div class="code-block">git clone https://github.com/heliosarchitect/wems-mcp-server.git
+cd wems-mcp-server
+pip install -r requirements.txt
+python wems_mcp_server.py</div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-links">
+                <a href="https://github.com/heliosarchitect/wems-mcp-server" class="footer-link">GitHub</a>
+                <a href="https://github.com/heliosarchitect/wems-mcp-server/issues" class="footer-link">Issues</a>
+                <a href="https://github.com/heliosarchitect/wems-mcp-server/blob/main/CONTRIBUTING.md" class="footer-link">Contributing</a>
+                <a href="mailto:heliosarchitectlbf@gmail.com" class="footer-link">Contact</a>
+            </div>
+            
+            <div class="footer-copyright">
+                <p>&copy; 2026 Helios. Licensed under MIT. Built with ❤️ for the AI community.</p>
+                <p>Part of the <a href="https://loverbearfarm.com" style="color: inherit;">LoverbearFarm</a> ecosystem.</p>
+            </div>
+        </div>
+    </footer>
+
+    <script>
+        function showTab(tabName) {
+            // Hide all tabs
+            document.querySelectorAll('.tab-content').forEach(tab => {
+                tab.style.display = 'none';
+            });
+            
+            // Remove active class from all buttons
+            document.querySelectorAll('.tab-button').forEach(button => {
+                button.classList.remove('active');
+            });
+            
+            // Show selected tab and mark button as active
+            document.getElementById(tabName + '-tab').style.display = 'block';
+            event.target.classList.add('active');
+        }
+
+        // Smooth scrolling for anchor links
+        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+            anchor.addEventListener('click', function (e) {
+                e.preventDefault();
+                document.querySelector(this.getAttribute('href')).scrollIntoView({
+                    behavior: 'smooth'
+                });
+            });
+        });
+    </script>
+</body>
+</html>

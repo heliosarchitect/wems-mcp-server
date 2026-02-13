@@ -1,0 +1,56 @@
+#!/bin/bash
+
+# WEMS v1.0.0 Release Creation Script
+# Run this after manually pushing the workflow file to GitHub
+
+echo "🚀 WEMS v1.0.0 Release Creation Guide"
+echo "===================================="
+echo ""
+
+echo "📋 MANUAL STEPS REQUIRED:"
+echo ""
+echo "1. Push the workflow file to GitHub:"
+echo "   git add .github/workflows/docker-build.yml"
+echo "   git commit -m 'feat: Add Docker build workflow'"
+echo "   git push origin master"
+echo ""
+echo "2. Create and push the v1.0.0 tag:"
+echo "   git tag -a v1.0.0 -m 'v1.0.0: Initial release'"
+echo "   git push origin v1.0.0"
+echo ""
+echo "3. Go to GitHub and create a new release:"
+echo "   URL: https://github.com/heliosarchitect/wems-mcp-server/releases/new"
+echo ""
+echo "4. Fill in the release form:"
+echo "   Tag version: v1.0.0"
+echo "   Release title: 🌍 WEMS v1.0.0 - World Event Monitoring System"
+echo "   Description: Copy from RELEASE-NOTES-v1.0.0.md"
+echo ""
+echo "5. Attach these files to the release:"
+echo "   - wems_mcp_server.py (main server)"
+echo "   - requirements.txt (dependencies)"
+echo "   - config.example.yaml (example config)"
+echo "   - server.json (MCP manifest)"
+echo "   - mcp-registry.json (registry metadata)"
+echo ""
+
+echo "📦 DOCKER BUILD STATUS:"
+echo "The workflow will automatically:"
+echo "- Build multi-platform Docker images (amd64/arm64)"
+echo "- Push to ghcr.io/heliosarchitect/wems-mcp-server:v1.0.0"
+echo "- Push to ghcr.io/heliosarchitect/wems-mcp-server:latest"
+echo "- Users can immediately 'docker pull' after tag is pushed"
+echo ""
+
+echo "✅ FILES READY FOR RELEASE:"
+ls -la wems_mcp_server.py requirements.txt config.example.yaml server.json mcp-registry.json RELEASE-NOTES-v1.0.0.md .github/workflows/docker-build.yml 2>/dev/null | grep -E "\.(py|txt|yaml|json|md|yml)$"
+echo ""
+
+echo "🔗 QUICK LINKS:"
+echo "- Repository: https://github.com/heliosarchitect/wems-mcp-server"
+echo "- Create Release: https://github.com/heliosarchitect/wems-mcp-server/releases/new"
+echo "- Release Notes: $(pwd)/RELEASE-NOTES-v1.0.0.md"
+echo ""
+
+echo "💡 TIP: After creating the release, the Docker build will trigger automatically!"
+echo "    Check: https://github.com/heliosarchitect/wems-mcp-server/actions"

@@ -16,7 +16,7 @@ class TestCheckVolcanoes:
     
     @pytest.mark.asyncio
     async def test_check_volcanoes_default_parameters(self, wems_server_default):
-        """Test volcano checking with default parameters."""
+        """Test volcano checking with default parameters (free tier: WARNING only)."""
         with patch.object(wems_server_default.http_client, 'get', new_callable=AsyncMock) as mock_get:
             mock_get.return_value = MockResponse({})
             
@@ -26,16 +26,28 @@ class TestCheckVolcanoes:
             text = result[0].text
             assert "Volcanic Activity Status" in text
             assert "Recent Volcanic Activity" in text
-            assert "WATCH" in text  # Default alert levels
-            assert "WARNING" in text  # Default alert levels
+            assert "WARNING" in text  # Free tier default
     
     @pytest.mark.asyncio
-    async def test_check_volcanoes_custom_alert_levels(self, wems_server_default):
-        """Test volcano checking with custom alert levels."""
-        with patch.object(wems_server_default.http_client, 'get', new_callable=AsyncMock) as mock_get:
+    async def test_check_volcanoes_premium_defaults(self, wems_server_premium):
+        """Test volcano checking with premium tier defaults (all levels)."""
+        with patch.object(wems_server_premium.http_client, 'get', new_callable=AsyncMock) as mock_get:
             mock_get.return_value = MockResponse({})
             
-            result = await wems_server_default._check_volcanoes(
+            result = await wems_server_premium._check_volcanoes()
+            
+            assert_textcontent_result(result)
+            text = result[0].text
+            assert "Volcanic Activity Status" in text
+            assert "WARNING" in text
+    
+    @pytest.mark.asyncio
+    async def test_check_volcanoes_custom_alert_levels_premium(self, wems_server_premium):
+        """Test volcano checking with custom alert levels (premium)."""
+        with patch.object(wems_server_premium.http_client, 'get', new_callable=AsyncMock) as mock_get:
+            mock_get.return_value = MockResponse({})
+            
+            result = await wems_server_premium._check_volcanoes(
                 alert_levels=["ADVISORY", "WARNING"]
             )
             
@@ -46,12 +58,26 @@ class TestCheckVolcanoes:
             assert "WARNING" in text
     
     @pytest.mark.asyncio
-    async def test_check_volcanoes_with_region_filter(self, wems_server_default):
-        """Test volcano checking with region filter."""
-        with patch.object(wems_server_default.http_client, 'get', new_callable=AsyncMock) as mock_get:
+    async def test_check_volcanoes_free_tier_restricts_levels(self, wems_server_free):
+        """Test that free tier restricts to WARNING only."""
+        with patch.object(wems_server_free.http_client, 'get', new_callable=AsyncMock) as mock_get:
             mock_get.return_value = MockResponse({})
             
-            result = await wems_server_default._check_volcanoes(
+            result = await wems_server_free._check_volcanoes(
+                alert_levels=["ADVISORY", "WARNING"]
+            )
+            
+            assert_textcontent_result(result)
+            text = result[0].text
+            assert "WARNING" in text
+    
+    @pytest.mark.asyncio
+    async def test_check_volcanoes_with_region_filter_premium(self, wems_server_premium):
+        """Test volcano checking with region filter (premium only)."""
+        with patch.object(wems_server_premium.http_client, 'get', new_callable=AsyncMock) as mock_get:
+            mock_get.return_value = MockResponse({})
+            
+            result = await wems_server_premium._check_volcanoes(
                 alert_levels=["WARNING"],
                 region="Alaska"
             )
@@ -59,7 +85,14 @@ class TestCheckVolcanoes:
             assert_textcontent_result(result)
             text = result[0].text
             assert "Volcanic Activity Status" in text
-            assert "Alaska" in text  # Region filter should be mentioned
+            assert "Alaska" in text
+    
+    @pytest.mark.asyncio
+    async def test_check_volcanoes_free_tier_blocks_region(self, wems_server_free):
+        """Test that free tier blocks region filtering."""
+        result = await wems_server_free._check_volcanoes(region="Alaska")
+        assert_textcontent_result(result)
+        assert "Premium" in result[0].text
     
     @pytest.mark.asyncio
     async def test_check_volcanoes_http_error(self, wems_server_default):
@@ -96,18 +129,17 @@ class TestCheckVolcanoes:
             assert "Unexpected error in volcano monitoring" in result[0].text
     
     @pytest.mark.asyncio
-    async def test_check_volcanoes_implementation_note(self, wems_server_default):
-        """Test that volcano checking includes implementation note."""
-        with patch.object(wems_server_default.http_client, 'get', new_callable=AsyncMock) as mock_get:
+    async def test_check_volcanoes_free_tier_shows_upgrade(self, wems_server_free):
+        """Test that free tier volcano results include upgrade prompt."""
+        with patch.object(wems_server_free.http_client, 'get', new_callable=AsyncMock) as mock_get:
             mock_get.return_value = MockResponse({})
             
-            result = await wems_server_default._check_volcanoes()
+            result = await wems_server_free._check_volcanoes()
             
             assert_textcontent_result(result)
             text = result[0].text
-            # Should contain note about basic implementation
-            assert "basic implementation" in text
-            assert "GVP integration recommended" in text
+            assert "Free tier" in text
+            assert "Premium" in text
     
     @pytest.mark.asyncio
     async def test_check_volcanoes_no_significant_alerts(self, wems_server_default):
@@ -136,18 +168,17 @@ class TestCheckVolcanoes:
             assert text.count("WARNING") >= 1
     
     @pytest.mark.asyncio
-    async def test_check_volcanoes_all_alert_levels(self, wems_server_default):
-        """Test volcano checking with all possible alert levels."""
+    async def test_check_volcanoes_all_alert_levels_premium(self, wems_server_premium):
+        """Test volcano checking with all possible alert levels (premium)."""
         all_levels = ["NORMAL", "ADVISORY", "WATCH", "WARNING"]
         
-        with patch.object(wems_server_default.http_client, 'get', new_callable=AsyncMock) as mock_get:
+        with patch.object(wems_server_premium.http_client, 'get', new_callable=AsyncMock) as mock_get:
             mock_get.return_value = MockResponse({})
             
-            result = await wems_server_default._check_volcanoes(alert_levels=all_levels)
+            result = await wems_server_premium._check_volcanoes(alert_levels=all_levels)
             
             assert_textcontent_result(result)
             text = result[0].text
-            # Should contain all alert levels in the output
             for level in all_levels:
                 assert level in text
 

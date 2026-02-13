@@ -29,12 +29,12 @@ class TestCheckEarthquakes:
             assert "2 found" in result[0].text  # from mock data
     
     @pytest.mark.asyncio
-    async def test_check_earthquakes_custom_parameters(self, wems_server_default, mock_earthquake_response):
-        """Test earthquake checking with custom parameters."""
-        with patch.object(wems_server_default.http_client, 'get', new_callable=AsyncMock) as mock_get:
+    async def test_check_earthquakes_custom_parameters(self, wems_server_premium, mock_earthquake_response):
+        """Test earthquake checking with custom parameters (premium - week access)."""
+        with patch.object(wems_server_premium.http_client, 'get', new_callable=AsyncMock) as mock_get:
             mock_get.return_value = MockResponse(mock_earthquake_response)
             
-            result = await wems_server_default._check_earthquakes(
+            result = await wems_server_premium._check_earthquakes(
                 min_magnitude=5.0,
                 time_period="week",
                 region="Alaska"
@@ -43,6 +43,13 @@ class TestCheckEarthquakes:
             assert_textcontent_result(result)
             assert "5.0" in result[0].text
             assert "week" in result[0].text
+    
+    @pytest.mark.asyncio
+    async def test_check_earthquakes_free_tier_blocks_week(self, wems_server_free, mock_earthquake_response):
+        """Test that free tier cannot access weekly earthquake data."""
+        result = await wems_server_free._check_earthquakes(time_period="week")
+        assert_textcontent_result(result)
+        assert "Premium" in result[0].text
     
     @pytest.mark.asyncio
     async def test_check_earthquakes_empty_response(self, wems_server_default, mock_earthquake_empty_response):
@@ -74,16 +81,22 @@ class TestCheckEarthquakes:
             assert "Hawaii" in text
     
     @pytest.mark.asyncio
-    async def test_check_earthquakes_time_period_variants(self, wems_server_default, mock_earthquake_response):
-        """Test different time period options."""
-        time_periods = ["hour", "day", "week"]
-        
-        for period in time_periods:
-            with patch.object(wems_server_default.http_client, 'get', new_callable=AsyncMock) as mock_get:
+    async def test_check_earthquakes_time_period_variants_free(self, wems_server_free, mock_earthquake_response):
+        """Test free tier time period options (hour/day only)."""
+        for period in ["hour", "day"]:
+            with patch.object(wems_server_free.http_client, 'get', new_callable=AsyncMock) as mock_get:
                 mock_get.return_value = MockResponse(mock_earthquake_response)
-                
-                result = await wems_server_default._check_earthquakes(time_period=period)
-                
+                result = await wems_server_free._check_earthquakes(time_period=period)
+                assert_textcontent_result(result)
+                assert period in result[0].text
+    
+    @pytest.mark.asyncio
+    async def test_check_earthquakes_time_period_variants_premium(self, wems_server_premium, mock_earthquake_response):
+        """Test premium tier time period options (all periods)."""
+        for period in ["hour", "day", "week", "month"]:
+            with patch.object(wems_server_premium.http_client, 'get', new_callable=AsyncMock) as mock_get:
+                mock_get.return_value = MockResponse(mock_earthquake_response)
+                result = await wems_server_premium._check_earthquakes(time_period=period)
                 assert_textcontent_result(result)
                 assert period in result[0].text
     
@@ -208,9 +221,8 @@ class TestCheckEarthquakes:
             assert "Depth: 25.5 km" in result[0].text
     
     @pytest.mark.asyncio
-    async def test_check_earthquakes_limits_to_10_results(self, wems_server_default):
-        """Test that earthquake results are limited to top 10."""
-        # Create mock data with 15 earthquakes
+    async def test_check_earthquakes_free_tier_limits_to_5_results(self, wems_server_free):
+        """Test that free tier limits earthquake results to 5."""
         features = []
         for i in range(15):
             features.append({
@@ -227,17 +239,48 @@ class TestCheckEarthquakes:
             "features": features
         }
         
-        with patch.object(wems_server_default.http_client, 'get', new_callable=AsyncMock) as mock_get:
+        with patch.object(wems_server_free.http_client, 'get', new_callable=AsyncMock) as mock_get:
             mock_get.return_value = MockResponse(earthquake_data)
             
-            result = await wems_server_default._check_earthquakes()
+            result = await wems_server_free._check_earthquakes()
             
             assert_textcontent_result(result)
-            # Should report total count but only show details for first 10
             assert "15 found" in result[0].text
-            # Count occurrences of "Location" to verify only 10 are shown in detail
+            # Free tier: max 5 results shown
             location_count = result[0].text.count("Location")
-            assert location_count == 10
+            assert location_count == 5
+            assert "more" in result[0].text  # Should mention remaining results
+            assert "Premium" in result[0].text  # Should show upgrade prompt
+    
+    @pytest.mark.asyncio
+    async def test_check_earthquakes_premium_limits_to_50_results(self, wems_server_premium):
+        """Test that premium tier shows up to 50 results."""
+        features = []
+        for i in range(15):
+            features.append({
+                "properties": {
+                    "mag": 5.0 + i * 0.1,
+                    "place": f"Location {i}",
+                    "time": int(datetime.now(timezone.utc).timestamp() * 1000)
+                },
+                "geometry": {"coordinates": [0, 0, 10]}
+            })
+        
+        earthquake_data = {
+            "metadata": {"count": 15},
+            "features": features
+        }
+        
+        with patch.object(wems_server_premium.http_client, 'get', new_callable=AsyncMock) as mock_get:
+            mock_get.return_value = MockResponse(earthquake_data)
+            
+            result = await wems_server_premium._check_earthquakes()
+            
+            assert_textcontent_result(result)
+            assert "15 found" in result[0].text
+            # Premium: all 15 should be shown (limit is 50)
+            location_count = result[0].text.count("Location")
+            assert location_count == 15
 
 
 class TestEarthquakeAlerts:

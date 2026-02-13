@@ -157,8 +157,8 @@ class TestWemsServerConfiguration:
         
         try:
             server = WemsServer(empty_config_path)
-            # Empty YAML file returns None, so config will be None in this implementation
-            assert server.config is None
+            # Empty YAML returns None, but server normalizes to empty dict
+            assert server.config == {}
             
         finally:
             os.unlink(empty_config_path)
