@@ -9,7 +9,7 @@ import asyncio
 import json
 import os
 import sys
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional
 
 import httpx
@@ -288,7 +288,7 @@ class WemsServer:
             # Process recent space weather events
             if events_data:
                 # Filter for recent events (last 24 hours)
-                now = datetime.utcnow()
+                now = datetime.now(timezone.utc)
                 recent_events = []
                 
                 for event in events_data:
@@ -389,7 +389,7 @@ class WemsServer:
             # Process tsunami warnings
             active_warnings = []
             if tsunami_data and isinstance(tsunami_data, list):
-                now = datetime.utcnow()
+                now = datetime.now(timezone.utc)
                 
                 for event in tsunami_data:
                     # Check for active warnings (within last 24 hours)
