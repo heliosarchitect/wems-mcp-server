@@ -1,0 +1,86 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: [3.9, 3.10, 3.11]
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ matrix.python-version }}
+    
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -e .
+        pip install pytest pytest-cov pytest-asyncio
+    
+    - name: Run tests
+      run: |
+        python -m pytest tests/ -v --cov=wems_mcp_server --cov-report=xml
+    
+    - name: Upload coverage
+      uses: codecov/codecov-action@v3
+      if: matrix.python-version == '3.11'
+      with:
+        file: ./coverage.xml
+        flags: unittests
+
+  package:
+    needs: test
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/master'
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Python 3.11
+      uses: actions/setup-python@v4
+      with:
+        python-version: 3.11
+    
+    - name: Build package
+      run: |
+        python -m pip install --upgrade pip build
+        python -m build
+    
+    - name: Validate package
+      run: |
+        python -m pip install twine
+        python -m twine check dist/*
+
+  docker:
+    needs: test
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/master'
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+    
+    - name: Build Docker image
+      run: |
+        docker build -t wems-mcp-server:latest .
+        docker tag wems-mcp-server:latest wems-mcp-server:$(date +%Y%m%d)
+    
+    - name: Test Docker image
+      run: |
+        # Basic container health check
+        docker run --rm -d --name wems-test wems-mcp-server:latest
+        sleep 10
+        docker logs wems-test
+        docker stop wems-test || true
