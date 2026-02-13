@@ -9,10 +9,10 @@
     "url": "https://loverbearfarm.com"
   },
   "license": "MIT",
-  "homepage": "https://github.com/loverbearfarm/wems-mcp-server",
+  "homepage": "https://github.com/heliosarchitect/wems-mcp-server",
   "repository": {
     "type": "git", 
-    "url": "https://github.com/loverbearfarm/wems-mcp-server"
+    "url": "https://github.com/heliosarchitect/wems-mcp-server"
   },
   "categories": [
     "data-sources",
@@ -63,7 +63,7 @@
       "requirements": "requirements.txt"
     },
     "docker": {
-      "image": "loverbearfarm/wems-mcp-server:latest",
+      "image": "heliosarchitect/wems-mcp-server:latest",
       "ports": ["8080:8080"],
       "volumes": ["/path/to/config.yaml:/app/config/config.yaml"]
     }
