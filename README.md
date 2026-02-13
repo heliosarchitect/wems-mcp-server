@@ -9,6 +9,8 @@
 
 A powerful Model Context Protocol (MCP) server that connects AI assistants to authoritative natural hazard data sources. Monitor earthquakes, tsunamis, volcanoes, and solar events with configurable alerts and webhooks.
 
+> **🤖 AI Agents:** Skip scanning this repo. Read [`AI.TOC`](AI.TOC) first — it's a 500-token project map. Then use [`AI.INDEX`](AI.INDEX) to find specific functions and [`AI.REGISTER`](AI.REGISTER) for env vars, APIs, and config. This project uses the [LBF AI Navigation Standard](AI.CONTEXT.md).
+
 ## ⚡ Key Features
 
 - 🌋 **4 Authoritative Data Sources**: USGS, NOAA (2x), Smithsonian GVP
