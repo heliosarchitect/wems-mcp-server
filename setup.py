@@ -23,7 +23,7 @@ setup(
     description="World Event Monitoring System - MCP server for natural hazard monitoring",
     long_description=read_readme(),
     long_description_content_type="text/markdown",
-    url="https://github.com/loverbearfarm/wems-mcp-server",
+    url="https://github.com/heliosarchitect/wems-mcp-server",
     packages=find_packages(),
     classifiers=[
         "Development Status :: 5 - Production/Stable",
@@ -55,8 +55,8 @@ setup(
         "webhooks", "usgs", "noaa", "ai", "automation"
     ],
     project_urls={
-        "Bug Reports": "https://github.com/loverbearfarm/wems-mcp-server/issues",
-        "Source": "https://github.com/loverbearfarm/wems-mcp-server",
-        "Documentation": "https://github.com/loverbearfarm/wems-mcp-server#readme",
+        "Bug Reports": "https://github.com/heliosarchitect/wems-mcp-server/issues",
+        "Source": "https://github.com/heliosarchitect/wems-mcp-server",
+        "Documentation": "https://github.com/heliosarchitect/wems-mcp-server#readme",
     },
 )

@@ -30,12 +30,12 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/loverbearfarm/wems-mcp-server"
+    "url": "https://github.com/heliosarchitect/wems-mcp-server"
   },
   "bugs": {
-    "url": "https://github.com/loverbearfarm/wems-mcp-server/issues"
+    "url": "https://github.com/heliosarchitect/wems-mcp-server/issues"
   },
-  "homepage": "https://github.com/loverbearfarm/wems-mcp-server#readme",
+  "homepage": "https://github.com/heliosarchitect/wems-mcp-server#readme",
   "engines": {
     "python": ">=3.8"
   },
