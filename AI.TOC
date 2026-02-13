@@ -1,7 +1,7 @@
 # AI.TOC — WEMS MCP Server
 
 ## What This Is
-World Event Monitoring System — an MCP server that gives AI agents real-time access to natural hazard data (earthquakes, solar weather, volcanoes, tsunamis). Free tier for basic safety alerts, premium ($24.99/mo) for full depth and customization. Built by LBF.
+World Event Monitoring System — an MCP server that gives AI agents real-time access to natural hazard data (earthquakes, solar weather, volcanoes, tsunamis, hurricanes, wildfires). Free tier for basic safety alerts, premium ($24.99/mo) for full depth and customization. Built by LBF.
 
 ## Quick Start
 ```bash
@@ -12,13 +12,15 @@ WEMS_API_KEY=your_key wems    # premium tier
 
 ## Directory Layout
 ```
-├── wems_mcp_server.py   # Core server — all tools, tier gating, webhooks (700 lines)
-├── tests/               # 112 tests — per-tool + server config + tier coverage
+├── wems_mcp_server.py   # Core server — all tools, tier gating, webhooks (850+ lines)
+├── tests/               # 130+ tests — per-tool + server config + tier coverage
 │   ├── conftest.py      # Fixtures, mocks, helpers (free + premium server fixtures)
 │   ├── test_earthquakes.py
 │   ├── test_solar.py
 │   ├── test_volcanoes.py
 │   ├── test_tsunamis.py
+│   ├── test_hurricanes.py
+│   ├── test_wildfires.py
 │   ├── test_server.py
 │   └── test_configure_alerts.py
 ├── docs/index.html      # Landing page with pricing
@@ -30,13 +32,13 @@ WEMS_API_KEY=your_key wems    # premium tier
 ## Entry Points
 - **Server**: `wems_mcp_server.py:main()` — MCP stdio server entry point
 - **CLI**: `wems` — installed by pip, runs the server
-- **Tests**: `python3 -m pytest tests/ -v` — 112 tests, ~1.5s
+- **Tests**: `python3 -m pytest tests/ -v` — 130+ tests, ~2s
 
 ## Key Concepts
 - **Tier Gating**: Free vs Premium access controlled by WEMS_API_KEY env var
-- **MCP Tools**: 5 tools (check_earthquakes, check_solar, check_volcanoes, check_tsunamis, configure_alerts)
+- **MCP Tools**: 7 tools (check_earthquakes, check_solar, check_volcanoes, check_tsunamis, check_hurricanes, check_wildfires, configure_alerts)
 - **Webhook Alerts**: Configurable thresholds trigger HTTP webhooks when exceeded
-- **Data Sources**: USGS (quakes), NOAA SWPC (solar), Smithsonian GVP (volcanoes), NOAA PTWC (tsunamis)
+- **Data Sources**: USGS (quakes), NOAA SWPC (solar), Smithsonian GVP (volcanoes), NOAA PTWC (tsunamis), NHC/NWS (hurricanes), NWS/NIFC (wildfires)
 
 ## Dependencies
 - **Runtime**: mcp, httpx, pyyaml

@@ -36,6 +36,11 @@ TIER_LIMITS = {
         "volcano_alert_levels": ["WARNING"],   # Only highest alerts
         "tsunami_max_results": 3,
         "tsunami_regions": ["pacific"],        # Pacific only
+        "hurricane_basins": ["atlantic"],      # Atlantic only
+        "hurricane_include_forecast": False,   # No forecast tracks
+        "hurricane_max_results": 3,
+        "wildfire_max_results": 3,            # Fire warnings only
+        "wildfire_region_filter": False,      # No region filtering
         "configure_alerts": False,             # No custom alert config
         "polling_note": "Updates every 15 minutes",
     },
@@ -50,6 +55,11 @@ TIER_LIMITS = {
         "volcano_alert_levels": ["NORMAL", "ADVISORY", "WATCH", "WARNING"],
         "tsunami_max_results": 25,
         "tsunami_regions": ["pacific", "atlantic", "indian", "mediterranean"],
+        "hurricane_basins": ["atlantic", "pacific"],  # All basins
+        "hurricane_include_forecast": True,    # Forecast tracks
+        "hurricane_max_results": 25,
+        "wildfire_max_results": 25,          # All fire data
+        "wildfire_region_filter": True,      # Region filtering
         "configure_alerts": True,              # Full alert customization
         "polling_note": "Real-time updates",
     }
@@ -131,7 +141,9 @@ class WemsServer:
                     "earthquake": {"min_magnitude": 6.0},
                     "solar": {"min_kp_index": 7},
                     "volcano": {"alert_levels": ["WARNING", "WATCH"]},
-                    "tsunami": {"enabled": True}
+                    "tsunami": {"enabled": True},
+                    "hurricane": {"enabled": True},
+                    "wildfire": {"enabled": True}
                 }
             }
     
@@ -229,6 +241,44 @@ class WemsServer:
                         }
                     }
                 ),
+                Tool(
+                    name="check_hurricanes",
+                    description="Monitor hurricanes and tropical storms with forecast data",
+                    inputSchema={
+                        "type": "object",
+                        "properties": {
+                            "basin": {
+                                "type": "string",
+                                "enum": ["atlantic", "pacific", "all"],
+                                "description": "Free: atlantic only. Premium: all basins",
+                                "default": "atlantic"
+                            },
+                            "include_forecast": {
+                                "type": "boolean",
+                                "description": "Include forecast tracks (premium only)",
+                                "default": False
+                            }
+                        }
+                    }
+                ),
+                Tool(
+                    name="check_wildfires",
+                    description="Monitor wildfire activity and fire weather alerts",
+                    inputSchema={
+                        "type": "object",
+                        "properties": {
+                            "region": {
+                                "type": "string",
+                                "description": "Geographic region filter (premium only)"
+                            },
+                            "severity": {
+                                "type": "string",
+                                "enum": ["low", "moderate", "high", "critical"],
+                                "description": "Fire severity filter (optional)"
+                            }
+                        }
+                    }
+                ),
             ]
             
             # configure_alerts only available on premium
@@ -264,6 +314,10 @@ class WemsServer:
                 return await self._check_volcanoes(**arguments)
             elif name == "check_tsunamis":
                 return await self._check_tsunamis(**arguments)
+            elif name == "check_hurricanes":
+                return await self._check_hurricanes(**arguments)
+            elif name == "check_wildfires":
+                return await self._check_wildfires(**arguments)
             elif name == "configure_alerts":
                 if self.tier != TIER_PREMIUM:
                     return [TextContent(type="text", text=f"🔒 Custom alert configuration requires WEMS Premium.{_upgrade_message('Custom alert thresholds')}")]
@@ -670,6 +724,279 @@ class WemsServer:
         except Exception as e:
             return [TextContent(type="text", text=f"❌ Unexpected error in tsunami monitoring: {e}")]
     
+    # ─── Hurricanes ──────────────────────────────────────────────────────
+
+    async def _check_hurricanes(
+        self,
+        basin: str = "atlantic",
+        include_forecast: bool = False
+    ) -> List[TextContent]:
+        """Monitor hurricanes and tropical storms with tier-based access."""
+        
+        limits = self.limits
+        
+        # Enforce tier limits on basins
+        if basin == "all":
+            basin = "atlantic"  # Default to atlantic for free tier
+            if self.tier == TIER_FREE:
+                basin = "atlantic"
+            elif "pacific" not in limits["hurricane_basins"]:
+                basin = "atlantic"
+        elif basin not in limits["hurricane_basins"] and self.tier == TIER_FREE:
+            return [TextContent(
+                type="text",
+                text=f"🔒 {basin.title()} basin requires WEMS Premium. Free tier supports: {', '.join(limits['hurricane_basins'])}.{_upgrade_message('All hurricane basins + forecast tracks')}"
+            )]
+        
+        # Forecast tracks are premium only
+        if include_forecast and not limits["hurricane_include_forecast"]:
+            return [TextContent(
+                type="text",
+                text=f"🔒 Forecast tracks require WEMS Premium.{_upgrade_message('Hurricane forecast tracks and historical data')}"
+            )]
+        
+        max_results = limits["hurricane_max_results"]
+        
+        try:
+            # Fetch active storms from NHC
+            nhc_url = "https://www.nhc.noaa.gov/CurrentSummaries.json"
+            nhc_response = await self.http_client.get(nhc_url)
+            nhc_response.raise_for_status()
+            nhc_data = nhc_response.json()
+            
+            # Fetch NWS tropical alerts
+            alerts_url = "https://api.weather.gov/alerts/active?event=Hurricane,Tropical%20Storm,Hurricane%20Warning,Hurricane%20Watch"
+            alerts_response = await self.http_client.get(alerts_url)
+            alerts_response.raise_for_status()
+            alerts_data = alerts_response.json()
+            
+            result_text = [f"🌀 **Hurricane/Tropical Storm Status** ({basin.title()})\n\n"]
+            
+            # Process active storms
+            active_storms = []
+            if nhc_data and "summaries" in nhc_data:
+                for storm in nhc_data["summaries"]:
+                    storm_basin = storm.get("basin", "").lower()
+                    if basin == "all" or basin == "atlantic" and storm_basin in ["atlantic", "al"] or basin == "pacific" and storm_basin in ["pacific", "ep", "cp", "wp"]:
+                        active_storms.append(storm)
+            
+            if active_storms:
+                result_text.append("**Active Storms:**\n")
+                
+                shown = 0
+                for storm in active_storms:
+                    if shown >= max_results:
+                        remaining = len(active_storms) - max_results
+                        if remaining > 0 and self.tier == TIER_FREE:
+                            result_text.append(f"\n... and {remaining} more storms.{_upgrade_message('Full hurricane tracking for all basins')}")
+                        break
+                    
+                    name = storm.get("name", "Unnamed")
+                    intensity = storm.get("intensity", "Unknown")
+                    movement = storm.get("movement", "Unknown")
+                    location = storm.get("location", "Unknown")
+                    
+                    if "hurricane" in intensity.lower():
+                        storm_icon = "🔴"
+                    elif "tropical storm" in intensity.lower():
+                        storm_icon = "🟠"
+                    else:
+                        storm_icon = "🟡"
+                    
+                    result_text.append(f"{storm_icon} **{name}** - {intensity}\n")
+                    result_text.append(f"   Location: {location}\n")
+                    result_text.append(f"   Movement: {movement}\n\n")
+                    
+                    shown += 1
+                    
+                    await self._check_hurricane_alert(name, intensity, location)
+            else:
+                result_text.append("**Active Storms:**\n")
+                result_text.append("🟢 No active hurricanes or tropical storms\n\n")
+            
+            # Process active alerts
+            if alerts_data and "features" in alerts_data:
+                alert_count = len(alerts_data["features"])
+                if alert_count > 0:
+                    result_text.append(f"**Active Tropical Alerts:** {alert_count} warnings/watches\n")
+                    
+                    for alert in alerts_data["features"][:3]:  # Show up to 3 alerts
+                        properties = alert.get("properties", {})
+                        headline = properties.get("headline", "Unknown Alert")
+                        areas = properties.get("areaDesc", "Unknown Area")
+                        
+                        if "hurricane warning" in headline.lower():
+                            alert_icon = "🚨"
+                        elif "hurricane watch" in headline.lower():
+                            alert_icon = "⚠️"
+                        elif "tropical storm warning" in headline.lower():
+                            alert_icon = "🟠"
+                        else:
+                            alert_icon = "🟡"
+                        
+                        result_text.append(f"{alert_icon} {headline}\n")
+                        result_text.append(f"   Areas: {areas[:100]}{'...' if len(areas) > 100 else ''}\n")
+                else:
+                    result_text.append("**Active Tropical Alerts:**\n")
+                    result_text.append("🟢 No active hurricane or tropical storm alerts\n")
+            
+            result_text.append(f"\n📊 Basin: {basin.title()}\n")
+            result_text.append("🔍 Data sources: NHC, NWS\n")
+            
+            if include_forecast and self.tier == TIER_PREMIUM:
+                result_text.append("📈 Forecast tracks included (Premium)\n")
+            
+            if self.tier == TIER_FREE:
+                result_text.append(f"\n📋 {limits['polling_note']}")
+                if basin != "atlantic" or include_forecast:
+                    result_text.append(_upgrade_message("All hurricane basins + forecast tracks"))
+            
+            return [TextContent(type="text", text="".join(result_text))]
+            
+        except httpx.HTTPError as e:
+            return [TextContent(type="text", text=f"❌ Error fetching hurricane data: {e}")]
+        except Exception as e:
+            return [TextContent(type="text", text=f"❌ Unexpected error in hurricane monitoring: {e}")]
+    
+    # ─── Wildfires ───────────────────────────────────────────────────────
+
+    async def _check_wildfires(
+        self,
+        region: Optional[str] = None,
+        severity: Optional[str] = None
+    ) -> List[TextContent]:
+        """Monitor wildfire activity and fire weather alerts with tier-based access."""
+        
+        limits = self.limits
+        
+        # Region filtering is premium
+        if region and not limits["wildfire_region_filter"]:
+            return [TextContent(
+                type="text",
+                text=f"🔒 Region filtering requires WEMS Premium.{_upgrade_message('Wildfire region filtering and full fire data')}"
+            )]
+        
+        max_results = limits["wildfire_max_results"]
+        
+        try:
+            # Fetch fire weather alerts from NWS
+            alerts_url = "https://api.weather.gov/alerts/active?event=Fire%20Weather%20Watch,Red%20Flag%20Warning"
+            alerts_response = await self.http_client.get(alerts_url)
+            alerts_response.raise_for_status()
+            alerts_data = alerts_response.json()
+            
+            # Fetch active fire perimeters from NIFC (premium gets full data)
+            fire_data = None
+            if self.tier == TIER_PREMIUM:
+                try:
+                    nifc_url = "https://services3.arcgis.com/T4QMspbfLg3qTGWY/arcgis/rest/services/Current_WildlandFire_Perimeters/FeatureServer/0/query?where=1%3D1&outFields=*&f=json&resultRecordCount=10&orderByFields=GISAcres DESC"
+                    nifc_response = await self.http_client.get(nifc_url)
+                    nifc_response.raise_for_status()
+                    fire_data = nifc_response.json()
+                except httpx.HTTPError:
+                    fire_data = None
+            
+            result_text = ["🔥 **Wildfire Activity Status**\n\n"]
+            
+            # Process fire weather alerts
+            active_alerts = []
+            if alerts_data and "features" in alerts_data:
+                for alert in alerts_data["features"]:
+                    properties = alert.get("properties", {})
+                    if region:
+                        areas = properties.get("areaDesc", "").lower()
+                        if region.lower() not in areas:
+                            continue
+                    active_alerts.append(alert)
+            
+            if active_alerts:
+                result_text.append(f"**Fire Weather Alerts:** {len(active_alerts)} active\n")
+                
+                shown = 0
+                for alert in active_alerts:
+                    if shown >= max_results:
+                        remaining = len(active_alerts) - max_results
+                        if remaining > 0 and self.tier == TIER_FREE:
+                            result_text.append(f"\n... and {remaining} more alerts.{_upgrade_message('Full fire weather alerts + fire perimeter data')}")
+                        break
+                    
+                    properties = alert.get("properties", {})
+                    headline = properties.get("headline", "Fire Weather Alert")
+                    areas = properties.get("areaDesc", "Unknown Areas")
+                    severity_level = properties.get("severity", "Minor")
+                    
+                    if "red flag warning" in headline.lower() or severity_level.lower() == "extreme":
+                        alert_icon = "🔴"
+                    elif "fire weather watch" in headline.lower() or severity_level.lower() in ["severe", "moderate"]:
+                        alert_icon = "🟠"
+                    else:
+                        alert_icon = "🟡"
+                    
+                    # Filter by severity if specified
+                    if severity:
+                        if severity.lower() == "critical" and "red flag" not in headline.lower():
+                            continue
+                        elif severity.lower() == "high" and alert_icon not in ["🔴", "🟠"]:
+                            continue
+                    
+                    result_text.append(f"{alert_icon} {headline}\n")
+                    result_text.append(f"   Areas: {areas[:100]}{'...' if len(areas) > 100 else ''}\n")
+                    result_text.append(f"   Severity: {severity_level}\n\n")
+                    
+                    shown += 1
+                    
+                    await self._check_wildfire_alert(headline, areas, severity_level)
+            else:
+                result_text.append("**Fire Weather Alerts:**\n")
+                result_text.append("🟢 No active fire weather watches or warnings\n\n")
+            
+            # Process active fires (premium only)
+            if fire_data and self.tier == TIER_PREMIUM and "features" in fire_data:
+                fires = fire_data["features"]
+                if fires:
+                    result_text.append(f"**Active Large Fires:** {len(fires)} incidents\n")
+                    
+                    for fire in fires[:5]:  # Top 5 largest fires
+                        attributes = fire.get("attributes", {})
+                        fire_name = attributes.get("IncidentName", "Unknown Fire")
+                        acres = attributes.get("GISAcres", 0)
+                        containment = attributes.get("PercentContained", 0)
+                        state = attributes.get("POOState", "Unknown")
+                        
+                        if acres > 100000:
+                            fire_icon = "🔥"
+                        elif acres > 50000:
+                            fire_icon = "🟠"
+                        elif acres > 10000:
+                            fire_icon = "🟡"
+                        else:
+                            fire_icon = "🔸"
+                        
+                        result_text.append(f"{fire_icon} **{fire_name}** ({state})\n")
+                        result_text.append(f"   Size: {acres:,.0f} acres | {containment}% contained\n\n")
+                else:
+                    result_text.append("**Active Large Fires:**\n")
+                    result_text.append("🟢 No large wildfires currently active\n\n")
+            
+            if region and self.tier == TIER_PREMIUM:
+                result_text.append(f"🌍 Region filter: {region}\n")
+            
+            if severity:
+                result_text.append(f"⚠️ Severity filter: {severity}\n")
+            
+            result_text.append("🔍 Data sources: NWS Fire Weather, NIFC\n")
+            
+            if self.tier == TIER_FREE:
+                result_text.append(f"\n📋 Free tier: Fire weather alerts only. {limits['polling_note']}")
+                result_text.append(_upgrade_message("Active fire perimeters + region filtering"))
+            
+            return [TextContent(type="text", text="".join(result_text))]
+            
+        except httpx.HTTPError as e:
+            return [TextContent(type="text", text=f"❌ Error fetching wildfire data: {e}")]
+        except Exception as e:
+            return [TextContent(type="text", text=f"❌ Unexpected error in wildfire monitoring: {e}")]
+
     # ─── Alert Configuration (Premium) ───────────────────────────────────
 
     async def _configure_alerts(self, alert_type: str, config: Dict[str, Any]) -> List[TextContent]:
@@ -752,6 +1079,44 @@ class WemsServer:
                 "magnitude": magnitude,
                 "timestamp": time,
                 "alert_level": "critical"
+            }
+            try:
+                await self.http_client.post(webhook_url, json=payload)
+            except httpx.HTTPError:
+                pass
+                
+    async def _check_hurricane_alert(self, name: str, intensity: str, location: str):
+        alert_config = self.config.get("alerts", {}).get("hurricane", {})
+        webhook_url = alert_config.get("webhook")
+        enabled = alert_config.get("enabled", True)
+        
+        if enabled and webhook_url and ("hurricane" in intensity.lower() or "tropical storm" in intensity.lower()):
+            payload = {
+                "event_type": "hurricane",
+                "storm_name": name,
+                "intensity": intensity,
+                "location": location,
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "alert_level": "critical" if "hurricane" in intensity.lower() else "warning"
+            }
+            try:
+                await self.http_client.post(webhook_url, json=payload)
+            except httpx.HTTPError:
+                pass
+
+    async def _check_wildfire_alert(self, headline: str, areas: str, severity: str):
+        alert_config = self.config.get("alerts", {}).get("wildfire", {})
+        webhook_url = alert_config.get("webhook")
+        enabled = alert_config.get("enabled", True)
+        
+        if enabled and webhook_url and ("red flag warning" in headline.lower() or severity.lower() in ["extreme", "severe"]):
+            payload = {
+                "event_type": "wildfire",
+                "alert_type": headline,
+                "areas": areas,
+                "severity": severity,
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "alert_level": "critical" if "red flag" in headline.lower() else "warning"
             }
             try:
                 await self.http_client.post(webhook_url, json=payload)

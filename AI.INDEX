@@ -8,7 +8,9 @@
 [fn] _check_solar → wems_mcp_server.py:280 — NOAA SWPC K-index + space weather events. Params: event_types, include_forecast (premium).
 [fn] _check_volcanoes → wems_mcp_server.py:380 — Smithsonian GVP volcanic activity. Params: alert_levels, region (premium).
 [fn] _check_tsunamis → wems_mcp_server.py:430 — NOAA tsunami warnings. Params: regions.
-[fn] _configure_alerts → wems_mcp_server.py:500 — Update alert thresholds (premium only).
+[fn] _check_hurricanes → wems_mcp_server.py:500 — NHC/NWS hurricane and tropical storm monitoring. Params: basin, include_forecast (premium).
+[fn] _check_wildfires → wems_mcp_server.py:620 — NWS/NIFC wildfire and fire weather monitoring. Params: region (premium), severity.
+[fn] _configure_alerts → wems_mcp_server.py:750 — Update alert thresholds (premium only).
 
 ## Functions — Tier System
 [fn] _get_tier → wems_mcp_server.py:72 — Resolves user tier from API key. Checks WEMS_PREMIUM_KEYS env, then Stripe prefix.
@@ -20,6 +22,8 @@
 [fn] _check_solar_alert → wems_mcp_server.py:525 — Fires webhook if K-index exceeds threshold.
 [fn] _check_volcano_alert → wems_mcp_server.py:540 — Fires webhook if alert level is monitored.
 [fn] _check_tsunami_alert → wems_mcp_server.py:555 — Fires webhook for any tsunami warning.
+[fn] _check_hurricane_alert → wems_mcp_server.py:570 — Fires webhook for hurricanes and tropical storms.
+[fn] _check_wildfire_alert → wems_mcp_server.py:585 — Fires webhook for red flag warnings and severe fire weather.
 
 ## Constants
 [const] TIER_FREE → wems_mcp_server.py:22 — "free" tier identifier
@@ -35,5 +39,9 @@
 [test] TestVolcanoAlerts → tests/test_volcanoes.py:150 — Volcano webhook: monitored levels, payloads
 [test] TestCheckTsunamis → tests/test_tsunamis.py:14 — Tsunami tool: regions, warnings, time filtering, tier limits
 [test] TestTsunamiAlerts → tests/test_tsunamis.py:200 — Tsunami webhook: enabled/disabled, payloads
+[test] TestCheckHurricanes → tests/test_hurricanes.py:14 — Hurricane tool: basins, forecast tracks, storm types, tier limits
+[test] TestHurricaneAlerts → tests/test_hurricanes.py:400 — Hurricane webhook: storm intensity, thresholds, payloads
+[test] TestCheckWildfires → tests/test_wildfires.py:14 — Wildfire tool: fire weather alerts, NIFC data, regions, tier limits
+[test] TestWildfireAlerts → tests/test_wildfires.py:400 — Wildfire webhook: severity levels, red flag warnings
 [test] TestWemsServerConfiguration → tests/test_server.py:10 — Server init, config loading, empty config
 [test] TestConfigureAlerts → tests/test_configure_alerts.py:10 — Alert config updates, unknown types

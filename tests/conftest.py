@@ -35,6 +35,14 @@ def sample_config():
             "tsunami": {
                 "enabled": True,
                 "webhook": "https://webhook.example.com/tsunami"
+            },
+            "hurricane": {
+                "enabled": True,
+                "webhook": "https://webhook.example.com/hurricane"
+            },
+            "wildfire": {
+                "enabled": True,
+                "webhook": "https://webhook.example.com/wildfire"
             }
         }
     }
@@ -147,7 +155,7 @@ def mock_earthquake_empty_response():
         "metadata": {
             "generated": int(datetime.now(timezone.utc).timestamp() * 1000),
             "url": "https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/6.0_day.geojson",
-            "title": "USGS Magnitude 6.0+ Earthquakes, Past Day", 
+            "title": "USGS Magnitude 6.0+ Earthquakes, Past Day",
             "status": 200,
             "api": "1.13.6",
             "count": 0
@@ -189,7 +197,7 @@ def mock_solar_events_response():
         },
         {
             "begin_time": (now.replace(hour=now.hour-6)).strftime('%Y-%m-%dT%H:%M:%SZ'),
-            "type": "Geomagnetic Activity", 
+            "type": "Geomagnetic Activity",
             "message": "Minor geomagnetic storm conditions observed",
             "space_weather_message_code": "WARK04",
             "issue_datetime": now.strftime('%Y-%m-%dT%H:%M:%SZ')
@@ -213,23 +221,163 @@ def mock_tsunami_response():
     ]
 
 
-@pytest.fixture 
+@pytest.fixture
 def mock_tsunami_empty_response():
     """Mock empty NOAA tsunami API response."""
     return []
 
 
+@pytest.fixture
+def mock_hurricane_response():
+    """Mock NHC CurrentSummaries API response."""
+    return {
+        "summaries": []
+    }
+
+
+@pytest.fixture 
+def mock_hurricane_response_with_storms():
+    """Mock NHC CurrentSummaries API response with active storms."""
+    return {
+        "summaries": [
+            {
+                "basin": "atlantic",
+                "name": "Tropical Storm Alpha",
+                "intensity": "Tropical Storm",
+                "movement": "NW at 12 mph",
+                "location": "25.4N 78.8W"
+            },
+            {
+                "basin": "atlantic", 
+                "name": "Hurricane Beta",
+                "intensity": "Category 2 Hurricane",
+                "movement": "NNW at 15 mph",
+                "location": "28.2N 80.1W"
+            }
+        ]
+    }
+
+
+@pytest.fixture
+def mock_hurricane_empty_response():
+    """Mock empty NHC CurrentSummaries API response."""
+    return {
+        "summaries": []
+    }
+
+
+@pytest.fixture
+def mock_hurricane_alerts_response():
+    """Mock NWS hurricane alerts API response."""
+    return {
+        "features": [
+            {
+                "properties": {
+                    "headline": "Hurricane Warning issued for South Florida",
+                    "areaDesc": "Miami-Dade, Broward Counties"
+                }
+            },
+            {
+                "properties": {
+                    "headline": "Tropical Storm Watch issued for Central Florida",
+                    "areaDesc": "Orange, Seminole Counties"
+                }
+            }
+        ]
+    }
+
+
+@pytest.fixture
+def mock_hurricane_alerts_empty_response():
+    """Mock empty NWS hurricane alerts API response."""
+    return {
+        "features": []
+    }
+
+
+@pytest.fixture
+def mock_wildfire_alerts_response():
+    """Mock NWS fire weather alerts API response."""
+    return {
+        "features": []
+    }
+
+
+@pytest.fixture
+def mock_wildfire_alerts_response_with_alerts():
+    """Mock NWS fire weather alerts API response with active alerts."""
+    return {
+        "features": [
+            {
+                "properties": {
+                    "headline": "Red Flag Warning issued for Central Valley",
+                    "areaDesc": "Central Valley, California",
+                    "severity": "Extreme"
+                }
+            },
+            {
+                "properties": {
+                    "headline": "Fire Weather Watch issued for Northern Mountains", 
+                    "areaDesc": "Northern Mountains, California",
+                    "severity": "Moderate"
+                }
+            }
+        ]
+    }
+
+
+@pytest.fixture
+def mock_wildfire_alerts_empty_response():
+    """Mock empty NWS fire weather alerts API response."""
+    return {
+        "features": []
+    }
+
+
+@pytest.fixture
+def mock_wildfire_nifc_response():
+    """Mock NIFC fire perimeters API response."""
+    return {
+        "features": [
+            {
+                "attributes": {
+                    "IncidentName": "Wildfire Alpha",
+                    "GISAcres": 125000,
+                    "PercentContained": 35,
+                    "POOState": "CA"
+                }
+            },
+            {
+                "attributes": {
+                    "IncidentName": "Wildfire Beta", 
+                    "GISAcres": 85000,
+                    "PercentContained": 60,
+                    "POOState": "OR"
+                }
+            }
+        ]
+    }
+
+
+@pytest.fixture
+def mock_wildfire_nifc_empty_response():
+    """Mock empty NIFC fire perimeters API response."""
+    return {
+        "features": []
+    }
+
+
 class MockResponse:
     """Mock HTTP response for testing."""
-    
+
     def __init__(self, json_data: Dict[str, Any], status_code: int = 200):
         self.json_data = json_data
         self.status_code = status_code
         self.headers = {'content-type': 'application/json'}
-    
+
     def json(self):
         return self.json_data
-    
+
     def raise_for_status(self):
         if self.status_code >= 400:
             raise httpx.HTTPStatusError(
@@ -247,7 +395,7 @@ async def wems_server(temp_config_file):
     await server.http_client.aclose()
 
 
-@pytest.fixture 
+@pytest.fixture
 async def wems_server_default():
     """Create a WEMS server instance with default config (free tier)."""
     server = WemsServer()  # No config file - uses defaults
@@ -281,12 +429,12 @@ def assert_textcontent_result(result, expected_content_contains=None, expected_c
     """Helper function to assert TextContent results."""
     assert isinstance(result, list)
     assert len(result) == expected_count
-    
+
     for item in result:
         assert isinstance(item, TextContent)
         assert item.type == "text"
         assert isinstance(item.text, str)
-        
+
         if expected_content_contains:
             if isinstance(expected_content_contains, str):
                 assert expected_content_contains in item.text

@@ -20,6 +20,10 @@
   alerts.volcano.webhook: URL — Webhook endpoint for volcano alerts
   alerts.tsunami.enabled: bool (default: true) — Whether tsunami alerts fire
   alerts.tsunami.webhook: URL — Webhook endpoint for tsunami alerts
+  alerts.hurricane.enabled: bool (default: true) — Whether hurricane alerts fire
+  alerts.hurricane.webhook: URL — Webhook endpoint for hurricane alerts
+  alerts.wildfire.enabled: bool (default: true) — Whether wildfire alerts fire
+  alerts.wildfire.webhook: URL — Webhook endpoint for wildfire alerts
 
 ## Data Sources
 [source] USGS Earthquake Feed — https://earthquake.usgs.gov/earthquakes/feed/v1.0/ — Real-time earthquake data (GeoJSON)
@@ -28,17 +32,23 @@
 [source] NOAA SWPC Forecast — https://services.swpc.noaa.gov/text/3-day-forecast.txt — 3-day space weather forecast (premium)
 [source] Smithsonian GVP — https://volcano.si.edu/reports_weekly.cfm?format=json — Weekly volcanic activity
 [source] NOAA PTWC — https://www.tsunami.gov/events/json/events.json — Tsunami warnings
+[source] NHC Current Summaries — https://www.nhc.noaa.gov/CurrentSummaries.json — Active hurricane/tropical storm data
+[source] NWS Tropical Alerts — https://api.weather.gov/alerts/active?event=Hurricane,Tropical%20Storm,Hurricane%20Warning,Hurricane%20Watch — Hurricane warnings/watches
+[source] NWS Fire Weather Alerts — https://api.weather.gov/alerts/active?event=Fire%20Weather%20Watch,Red%20Flag%20Warning — Fire weather alerts
+[source] NIFC Fire Perimeters — https://services3.arcgis.com/T4QMspbfLg3qTGWY/arcgis/rest/services/Current_WildlandFire_Perimeters/FeatureServer/0 — Active wildfire perimeters (premium)
 
 ## MCP Tools (exposed to AI agents)
 [tool] check_earthquakes — Recent earthquake activity with magnitude/time/region filtering
 [tool] check_solar — Space weather: K-index, solar flares, CMEs, optional 3-day forecast
 [tool] check_volcanoes — Volcanic activity with alert level and region filtering
 [tool] check_tsunamis — Tsunami warnings by ocean basin
+[tool] check_hurricanes — Hurricane and tropical storm monitoring with forecast tracks (premium)
+[tool] check_wildfires — Wildfire activity and fire weather alerts with perimeter data (premium)
 [tool] configure_alerts — Update alert thresholds and webhook URLs (premium only)
 
 ## Tier Limits Summary
-[tier] free — M4.5+, hour/day only, 5 results, 3 solar events, WARNING volcanoes, Pacific tsunamis, no configure_alerts
-[tier] premium — M1.0+, all periods, 50 results, 25 solar events, all volcano levels + regions, all ocean basins, configure_alerts
+[tier] free — M4.5+, hour/day only, 5 results, 3 solar events, WARNING volcanoes, Pacific tsunamis, Atlantic hurricanes, fire weather alerts only, no configure_alerts
+[tier] premium — M1.0+, all periods, 50 results, 25 solar events, all volcano levels + regions, all ocean basins, all hurricane basins + forecasts, fire perimeters + regions, configure_alerts
 
 ## Integration Points
 [integrates] MCP Protocol — stdio transport, compatible with Claude Desktop, any MCP client
