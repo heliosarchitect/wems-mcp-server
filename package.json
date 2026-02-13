@@ -1,0 +1,56 @@
+{
+  "name": "wems-mcp-server",
+  "version": "1.0.0",
+  "description": "World Event Monitoring System - MCP server for natural hazard monitoring (earthquakes, tsunamis, volcanoes, solar events)",
+  "main": "wems_mcp_server.py",
+  "scripts": {
+    "start": "python3 wems_mcp_server.py",
+    "test": "python3 -m pytest tests/",
+    "install": "pip3 install -r requirements.txt"
+  },
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "natural-disasters",
+    "earthquake",
+    "tsunami", 
+    "volcano",
+    "solar-weather",
+    "monitoring",
+    "alerts",
+    "webhooks",
+    "usgs",
+    "noaa"
+  ],
+  "author": {
+    "name": "Helios",
+    "email": "heliosarchitectlbf@gmail.com",
+    "organization": "Lover Bear Farm"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/loverbearfarm/wems-mcp-server"
+  },
+  "bugs": {
+    "url": "https://github.com/loverbearfarm/wems-mcp-server/issues"
+  },
+  "homepage": "https://github.com/loverbearfarm/wems-mcp-server#readme",
+  "engines": {
+    "python": ">=3.8"
+  },
+  "mcp": {
+    "server": {
+      "command": "python3",
+      "args": ["wems_mcp_server.py"],
+      "tools": [
+        "check_earthquakes",
+        "check_solar", 
+        "check_volcanoes",
+        "check_tsunamis",
+        "configure_alerts"
+      ],
+      "description": "Monitor natural hazards and world events via authoritative data sources"
+    }
+  }
+}

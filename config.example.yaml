@@ -1,0 +1,42 @@
+# WEMS Configuration Example
+# Copy to config.yaml and customize
+
+alerts:
+  earthquake:
+    min_magnitude: 6.0
+    regions: ["US", "Caribbean", "Pacific"]  # Optional geographic filtering
+    webhook: "https://your-endpoint.com/webhook/earthquake"
+    
+  solar:
+    min_kp_index: 7       # Geomagnetic storm threshold (0-9 scale)
+    min_xray_class: "M1"  # Solar flare threshold (C, M, X classes)
+    webhook: "https://your-endpoint.com/webhook/solar"
+    
+  volcano:
+    alert_levels: ["WARNING", "WATCH"]  # USGS volcano alert levels
+    regions: ["US", "Caribbean"]
+    webhook: "https://your-endpoint.com/webhook/volcano"
+    
+  tsunami:
+    regions: ["Pacific", "Atlantic", "Indian"]
+    webhook: "https://your-endpoint.com/webhook/tsunami"
+
+# Data source configuration
+sources:
+  usgs_earthquake: "https://earthquake.usgs.gov/earthquakes/feed/v1.0"
+  noaa_swpc: "https://services.swpc.noaa.gov/json"
+  noaa_tsunami_pacific: "https://www.tsunami.gov/events/"
+  smithsonian_gvp: "https://volcano.si.edu/news/"
+
+# Webhook settings
+webhook:
+  timeout: 10  # seconds
+  retries: 3
+  user_agent: "WEMS/1.0 (World Event Monitoring System)"
+
+# Polling intervals (for standalone mode)
+polling:
+  earthquake: 300   # 5 minutes
+  solar: 600        # 10 minutes  
+  volcano: 1800     # 30 minutes
+  tsunami: 300      # 5 minutes

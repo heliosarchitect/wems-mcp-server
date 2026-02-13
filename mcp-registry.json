@@ -1,0 +1,94 @@
+{
+  "name": "wems-mcp-server",
+  "displayName": "WEMS - World Event Monitoring System", 
+  "description": "Comprehensive natural hazard monitoring MCP server with 4 authoritative data sources: earthquakes (USGS), tsunamis (NOAA), volcanoes (Smithsonian GVP), and solar events (NOAA Space Weather). Features configurable webhooks, geographic filtering, and real-time alerting.",
+  "version": "1.0.0",
+  "author": {
+    "name": "Helios",
+    "email": "heliosarchitectlbf@gmail.com",
+    "url": "https://loverbearfarm.com"
+  },
+  "license": "MIT",
+  "homepage": "https://github.com/loverbearfarm/wems-mcp-server",
+  "repository": {
+    "type": "git", 
+    "url": "https://github.com/loverbearfarm/wems-mcp-server"
+  },
+  "categories": [
+    "data-sources",
+    "monitoring", 
+    "webhooks",
+    "alerts"
+  ],
+  "tags": [
+    "earthquake",
+    "tsunami",
+    "volcano", 
+    "solar-weather",
+    "natural-disasters",
+    "monitoring",
+    "usgs",
+    "noaa",
+    "real-time",
+    "alerts",
+    "webhooks",
+    "emergency-management"
+  ],
+  "tools": [
+    {
+      "name": "check_earthquakes",
+      "description": "Query recent earthquake activity from USGS with magnitude and geographic filtering"
+    },
+    {
+      "name": "check_tsunamis", 
+      "description": "Monitor tsunami warnings from NOAA Pacific and Central Warning Centers"
+    },
+    {
+      "name": "check_volcanoes",
+      "description": "Track volcanic activity alerts from Smithsonian Global Volcanism Program"
+    },
+    {
+      "name": "check_solar",
+      "description": "Monitor space weather events including solar flares, CMEs, and geomagnetic storms"
+    },
+    {
+      "name": "configure_alerts",
+      "description": "Update alert thresholds and webhook configurations for proactive monitoring"
+    }
+  ],
+  "installation": {
+    "python": {
+      "command": "python3",
+      "args": ["wems_mcp_server.py"],
+      "requirements": "requirements.txt"
+    },
+    "docker": {
+      "image": "loverbearfarm/wems-mcp-server:latest",
+      "ports": ["8080:8080"],
+      "volumes": ["/path/to/config.yaml:/app/config/config.yaml"]
+    }
+  },
+  "configuration": {
+    "required": false,
+    "configFile": "config.yaml",
+    "example": "config.example.yaml",
+    "description": "Optional configuration for alert thresholds and webhook endpoints"
+  },
+  "features": [
+    "4 authoritative data sources (USGS, NOAA x2, Smithsonian)",
+    "Configurable alert thresholds",
+    "Webhook notifications", 
+    "Geographic filtering",
+    "Real-time monitoring",
+    "No API keys required",
+    "Docker deployment ready"
+  ],
+  "useCases": [
+    "Emergency management monitoring",
+    "Research data collection", 
+    "News organization alerts",
+    "Personal safety awareness",
+    "Educational applications",
+    "Disaster preparedness"
+  ]
+}
