@@ -83,3 +83,10 @@ logs/
 data/
 cache/
 temp/
+build-env/
+test-env/
+*.pyc
+__pycache__/
+*.egg-info/
+dist/
+
