@@ -161,18 +161,11 @@ class TestCheckAirQuality:
     @pytest.mark.asyncio
     async def test_check_air_quality_coordinates_search(
         self, wems_server_default,
-        mock_air_quality_locations_response, mock_air_quality_measurements_response
+        mock_air_quality_locations_response
     ):
         """Test coordinate-based station search."""
         with patch.object(wems_server_default.http_client, 'get', new_callable=AsyncMock) as mock_get:
-            # First call: locations endpoint, subsequent calls: measurements
-            mock_get.side_effect = [
-                MockResponse(mock_air_quality_locations_response),
-                MockResponse(mock_air_quality_measurements_response),
-                MockResponse(mock_air_quality_measurements_response),
-                MockResponse(mock_air_quality_measurements_response),
-                MockResponse(mock_air_quality_measurements_response),
-            ]
+            mock_get.return_value = MockResponse(mock_air_quality_locations_response)
 
             result = await wems_server_default._check_air_quality(
                 latitude=37.7749, longitude=-122.4194, radius_km=50
@@ -345,7 +338,7 @@ class TestCheckAirQuality:
             result = await wems_server_default._check_air_quality()
 
             assert_textcontent_result(result)
-            assert "OpenAQ" in result[0].text
+            assert "EPA AirNow" in result[0].text
 
     @pytest.mark.asyncio
     async def test_check_air_quality_free_tier_upgrade_prompt(self, wems_server_default, mock_air_quality_response):

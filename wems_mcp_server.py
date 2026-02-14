@@ -856,27 +856,55 @@ class WemsServer:
                 regions = list(allowed)
             
         try:
-            ptwc_url = "https://www.tsunami.gov/events/json/events.json"
-            response = await self.http_client.get(ptwc_url)
-            response.raise_for_status()
-            tsunami_data = response.json()
+            # Use NOAA Tsunami Warning Center Atom feeds (reliable, always available)
+            atom_urls = {
+                "pacific": "https://www.tsunami.gov/events/xml/PAAQAtom.xml",
+                "atlantic": "https://www.tsunami.gov/events/xml/PHEBAtom.xml",
+            }
             
             result_text = ["🌊 **Tsunami Alert Status**\n\n"]
             max_results = limits["tsunami_max_results"]
             
             active_warnings = []
-            if tsunami_data and isinstance(tsunami_data, list):
-                now = datetime.now(timezone.utc)
-                
-                for event in tsunami_data:
-                    event_time = event.get("time", "")
-                    if event_time:
-                        try:
-                            dt = datetime.fromisoformat(event_time.replace('Z', '+00:00'))
-                            if (now - dt).days <= 1:
-                                active_warnings.append(event)
-                        except (ValueError, TypeError):
-                            continue
+            import xml.etree.ElementTree as ET
+            
+            for region_name in regions:
+                feed_url = atom_urls.get(region_name)
+                if not feed_url:
+                    continue
+                try:
+                    resp = await self.http_client.get(feed_url)
+                    resp.raise_for_status()
+                    root = ET.fromstring(resp.text)
+                    ns = {"atom": "http://www.w3.org/2005/Atom", "geo": "http://www.w3.org/2003/01/geo/wgs84_pos#"}
+                    
+                    feed_title = root.findtext("atom:title", "", ns)
+                    feed_updated = root.findtext("atom:updated", "", ns)
+                    
+                    for entry in root.findall("atom:entry", ns):
+                        title = entry.findtext("atom:title", "Unknown", ns)
+                        updated = entry.findtext("atom:updated", "", ns)
+                        summary_el = entry.find("atom:summary", ns)
+                        summary = ""
+                        if summary_el is not None and summary_el.text:
+                            # Strip HTML tags from summary
+                            import re
+                            summary = re.sub(r'<[^>]+>', ' ', summary_el.text).strip()
+                            summary = re.sub(r'\s+', ' ', summary)[:200]
+                        lat = entry.findtext("geo:lat", "", ns)
+                        lon = entry.findtext("geo:long", "", ns)
+                        
+                        active_warnings.append({
+                            "location": title,
+                            "time": updated,
+                            "summary": summary,
+                            "lat": lat,
+                            "lon": lon,
+                            "region": region_name,
+                            "feed_title": feed_title,
+                        })
+                except Exception:
+                    continue
             
             if active_warnings:
                 result_text.append("**Active Tsunami Warnings/Advisories:**\n")
@@ -890,8 +918,8 @@ class WemsServer:
                         break
                     
                     location = warning.get("location", "Unknown location")
-                    magnitude = warning.get("magnitude", "Unknown")
                     event_time = warning.get("time", "Unknown time")
+                    summary = warning.get("summary", "")
                     
                     if event_time != "Unknown time":
                         try:
@@ -903,11 +931,13 @@ class WemsServer:
                         time_str = event_time
                     
                     result_text.append(f"🚨 **{location}**\n")
-                    result_text.append(f"   Magnitude: {magnitude}\n")
-                    result_text.append(f"   Time: {time_str}\n\n")
+                    result_text.append(f"   Time: {time_str}\n")
+                    if summary:
+                        result_text.append(f"   {summary[:150]}\n")
+                    result_text.append("\n")
                     shown += 1
                     
-                    await self._check_tsunami_alert(location, magnitude, time_str)
+                    await self._check_tsunami_alert(location, "N/A", time_str)
             else:
                 result_text.append("**Active Tsunami Warnings/Advisories:**\n")
                 result_text.append("🟢 No active tsunami warnings or advisories\n\n")
@@ -962,27 +992,61 @@ class WemsServer:
         max_results = limits["hurricane_max_results"]
         
         try:
-            # Fetch active storms from NHC
-            nhc_url = "https://www.nhc.noaa.gov/CurrentSummaries.json"
-            nhc_response = await self.http_client.get(nhc_url)
-            nhc_response.raise_for_status()
-            nhc_data = nhc_response.json()
-            
-            # Fetch NWS tropical alerts
-            alerts_url = "https://api.weather.gov/alerts/active?event=Hurricane,Tropical%20Storm,Hurricane%20Warning,Hurricane%20Watch"
-            alerts_response = await self.http_client.get(alerts_url)
-            alerts_response.raise_for_status()
-            alerts_data = alerts_response.json()
+            # Fetch active storms from NHC RSS feeds (reliable, always available)
+            import xml.etree.ElementTree as ET
+            rss_urls = {
+                "atlantic": "https://www.nhc.noaa.gov/index-at.xml",
+                "pacific": "https://www.nhc.noaa.gov/index-ep.xml",
+            }
             
             result_text = [f"🌀 **Hurricane/Tropical Storm Status** ({basin.title()})\n\n"]
             
-            # Process active storms
             active_storms = []
-            if nhc_data and "summaries" in nhc_data:
-                for storm in nhc_data["summaries"]:
-                    storm_basin = storm.get("basin", "").lower()
-                    if basin == "all" or basin == "atlantic" and storm_basin in ["atlantic", "al"] or basin == "pacific" and storm_basin in ["pacific", "ep", "cp", "wp"]:
-                        active_storms.append(storm)
+            basins_to_check = list(rss_urls.keys()) if basin == "all" else [basin]
+            
+            for b in basins_to_check:
+                rss_url = rss_urls.get(b)
+                if not rss_url:
+                    continue
+                try:
+                    rss_resp = await self.http_client.get(rss_url)
+                    rss_resp.raise_for_status()
+                    root = ET.fromstring(rss_resp.text)
+                    nhc_ns = {"nhc": "https://www.nhc.noaa.gov"}
+                    
+                    for item in root.findall(".//item"):
+                        title = item.findtext("title", "")
+                        desc = item.findtext("description", "")
+                        link = item.findtext("link", "")
+                        pub_date = item.findtext("pubDate", "")
+                        
+                        # NHC RSS items include cyclone entries with nhc:center etc.
+                        center = item.findtext("nhc:center", "", nhc_ns)
+                        movement = item.findtext("nhc:movement", "", nhc_ns)
+                        wind = item.findtext("nhc:wind", "", nhc_ns)
+                        pressure = item.findtext("nhc:pressure", "", nhc_ns)
+                        
+                        if center or wind:  # It's a cyclone entry
+                            active_storms.append({
+                                "name": title,
+                                "intensity": f"Wind: {wind}" if wind else "Unknown",
+                                "movement": movement or "Unknown",
+                                "location": center or "Unknown",
+                                "pressure": pressure,
+                                "link": link,
+                                "basin": b,
+                            })
+                except Exception:
+                    continue
+            
+            # Also fetch NWS tropical alerts
+            try:
+                alerts_url = "https://api.weather.gov/alerts/active?event=Hurricane,Tropical%20Storm,Hurricane%20Warning,Hurricane%20Watch"
+                alerts_response = await self.http_client.get(alerts_url)
+                alerts_response.raise_for_status()
+                alerts_data = alerts_response.json()
+            except Exception:
+                alerts_data = {"features": []}
             
             if active_storms:
                 result_text.append("**Active Storms:**\n")
@@ -1000,9 +1064,9 @@ class WemsServer:
                     movement = storm.get("movement", "Unknown")
                     location = storm.get("location", "Unknown")
                     
-                    if "hurricane" in intensity.lower():
+                    if "hurricane" in intensity.lower() or "hurricane" in name.lower():
                         storm_icon = "🔴"
-                    elif "tropical storm" in intensity.lower():
+                    elif "tropical storm" in intensity.lower() or "tropical storm" in name.lower():
                         storm_icon = "🟠"
                     else:
                         storm_icon = "🟡"
@@ -1666,68 +1730,76 @@ class WemsServer:
         max_results = limits["air_quality_max_results"]
 
         try:
-            # ── Step 1: find locations near the user ──
-            locations = []
-            if latitude is not None and longitude is not None:
-                loc_url = (
-                    f"https://api.openaq.org/v3/locations"
-                    f"?coordinates={latitude},{longitude}"
-                    f"&radius={int(radius_km * 1000)}"
-                    f"&limit={max_results}"
-                )
-                loc_resp = await self.http_client.get(loc_url)
-                loc_resp.raise_for_status()
-                loc_data = loc_resp.json()
-                locations = loc_data.get("results", [])
-            else:
-                # Default: query latest measurements directly
-                pass
-
-            # ── Step 2: fetch latest measurements ──
+            # Use EPA AirNow open data files (free, no API key, updated hourly)
+            # Format: date|date|time|tz|offset|observed|current|city|state|lat|lon|param|aqi|category|...
+            airnow_url = "https://files.airnowtech.org/airnow/today/reportingarea.dat"
+            resp = await self.http_client.get(airnow_url)
+            resp.raise_for_status()
+            
+            # Parse pipe-delimited data
+            import math
             all_measurements = []
-            for param_name in parameters:
-                param_id = self._OPENAQ_PARAMS.get(param_name)
-                if param_id is None:
+            param_map = {"pm2.5": "pm25", "pm25": "pm25", "pm10": "pm10", "ozone": "o3", "o3": "o3",
+                         "no2": "no2", "so2": "so2", "co": "co"}
+            
+            for line in resp.text.strip().split("\n"):
+                fields = line.split("|")
+                if len(fields) < 14:
                     continue
-
-                if locations:
-                    for loc in locations:
-                        loc_id = loc.get("id")
-                        if loc_id is None:
+                
+                obs_city = fields[7].strip()
+                obs_state = fields[8].strip()
+                obs_lat = fields[9].strip()
+                obs_lon = fields[10].strip()
+                obs_param = fields[11].strip().lower()
+                obs_aqi_str = fields[12].strip()
+                obs_category = fields[13].strip()
+                
+                # Map parameter name
+                mapped_param = param_map.get(obs_param, obs_param)
+                if mapped_param not in parameters:
+                    continue
+                
+                # Filter by state if specified
+                if state and obs_state.upper() != state.upper():
+                    continue
+                
+                # Filter by city if specified (premium)
+                if city and city.lower() not in obs_city.lower():
+                    continue
+                
+                # Filter by country (AirNow is US-only, but that's fine for free tier)
+                # For premium with non-US countries, we'd need a different source
+                if country and country.upper() != "US":
+                    continue
+                
+                try:
+                    obs_aqi = int(obs_aqi_str) if obs_aqi_str else 0
+                except (ValueError, TypeError):
+                    obs_aqi = 0
+                
+                # Filter by coordinates + radius if specified
+                if latitude is not None and longitude is not None:
+                    try:
+                        lat_f = float(obs_lat)
+                        lon_f = float(obs_lon)
+                        # Haversine approximation (km)
+                        dlat = math.radians(lat_f - latitude)
+                        dlon = math.radians(lon_f - longitude)
+                        a = math.sin(dlat/2)**2 + math.cos(math.radians(latitude)) * math.cos(math.radians(lat_f)) * math.sin(dlon/2)**2
+                        dist_km = 6371 * 2 * math.asin(math.sqrt(a))
+                        if dist_km > radius_km:
                             continue
-                        meas_url = (
-                            f"https://api.openaq.org/v3/locations/{loc_id}/measurements"
-                            f"?parameters_id={param_id}&limit=1"
-                        )
-                        meas_resp = await self.http_client.get(meas_url)
-                        meas_resp.raise_for_status()
-                        meas_data = meas_resp.json()
-                        for m in meas_data.get("results", []):
-                            m["_location"] = loc
-                            m["_param_name"] = param_name
-                            all_measurements.append(m)
-                else:
-                    # Broad latest query
-                    meas_url = (
-                        f"https://api.openaq.org/v3/locations"
-                        f"?parameters_id={param_id}"
-                        f"&country={country.upper()}"
-                        f"&limit={max_results}"
-                    )
-                    meas_resp = await self.http_client.get(meas_url)
-                    meas_resp.raise_for_status()
-                    meas_data = meas_resp.json()
-                    for loc in meas_data.get("results", []):
-                        # Use the latest value from the location
-                        latest = loc.get("latest", {})
-                        if latest:
-                            m = {
-                                "value": latest.get("value"),
-                                "datetime": latest.get("datetime"),
-                                "_location": loc,
-                                "_param_name": param_name,
-                            }
-                            all_measurements.append(m)
+                    except (ValueError, TypeError):
+                        continue
+                
+                all_measurements.append({
+                    "value": obs_aqi,
+                    "_location": {"name": f"{obs_city}, {obs_state}", "lat": obs_lat, "lon": obs_lon},
+                    "_param_name": mapped_param,
+                    "_category": obs_category,
+                    "_is_aqi": True,  # AirNow gives us AQI directly
+                })
 
             # ── Step 3: format output ──
             result_text = ["🌬️ **Air Quality Report**\n\n"]
@@ -1781,14 +1853,21 @@ class WemsServer:
                         param = m.get("_param_name", "unknown")
                         param_id = self._OPENAQ_PARAMS.get(param, 0)
                         display_name = self._OPENAQ_PARAM_NAMES.get(param_id, param.upper())
+                        is_aqi = m.get("_is_aqi", False)
 
                         if value is not None:
                             try:
                                 val = float(value)
                             except (ValueError, TypeError):
                                 val = 0.0
-                            icon, label, _level = self._aqi_category(val, param)
-                            result_text.append(f"   {icon} {display_name}: {val:.1f} — {label}\n")
+                            
+                            if is_aqi:
+                                # AirNow provides AQI directly — use it for category lookup
+                                icon, label, _level = self._aqi_category(val, "aqi")
+                                result_text.append(f"   {icon} {display_name}: AQI {val:.0f} — {label}\n")
+                            else:
+                                icon, label, _level = self._aqi_category(val, param)
+                                result_text.append(f"   {icon} {display_name}: {val:.1f} — {label}\n")
 
                             # Trigger alert for unhealthy+
                             if _level in ("unhealthy", "very_unhealthy", "hazardous"):
@@ -1803,7 +1882,7 @@ class WemsServer:
             if include_forecast and self.tier == TIER_PREMIUM:
                 result_text.append("📈 **AQI Forecast:** Feature coming soon (premium)\n\n")
 
-            result_text.append("🔍 Data source: OpenAQ (global air quality data)\n")
+            result_text.append("🔍 Data source: EPA AirNow\n")
 
             if self.tier == TIER_FREE:
                 result_text.append(f"\n📋 Free tier: US only, PM2.5/O3 only, max {max_results} stations. {limits['polling_note']}")

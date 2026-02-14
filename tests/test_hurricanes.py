@@ -73,8 +73,9 @@ class TestCheckHurricanes:
             def side_effect(url):
                 if "nhc.noaa.gov" in url:
                     return MockResponse(mock_hurricane_response_with_storms)
-                else:  # NWS alerts
+                elif "api.weather.gov" in url:
                     return MockResponse(mock_hurricane_alerts_response)
+                return MockResponse(mock_hurricane_alerts_response)
             
             mock_get.side_effect = side_effect
             
@@ -124,39 +125,43 @@ class TestCheckHurricanes:
     @pytest.mark.asyncio
     async def test_check_hurricanes_different_storm_icons(self, wems_server_default, mock_hurricane_alerts_empty_response):
         """Test that different storm types get appropriate handling."""
-        # Create mock data with different storm intensities
-        storm_data = {
-            "summaries": [
-                {
-                    "basin": "atlantic",
-                    "name": "Hurricane Alpha",
-                    "intensity": "Category 3 Hurricane",
-                    "movement": "NNW at 15 mph",
-                    "location": "25.5N 78.2W"
-                },
-                {
-                    "basin": "atlantic", 
-                    "name": "Tropical Storm Beta",
-                    "intensity": "Tropical Storm",
-                    "movement": "W at 10 mph",
-                    "location": "15.2N 65.1W"
-                },
-                {
-                    "basin": "atlantic",
-                    "name": "Tropical Depression Gamma",
-                    "intensity": "Tropical Depression",
-                    "movement": "NW at 8 mph",
-                    "location": "12.8N 55.4W"
-                }
-            ]
-        }
+        storm_rss = (
+            '<?xml version="1.0" encoding="UTF-8"?>\n'
+            '<rss version="2.0" xmlns:nhc="https://www.nhc.noaa.gov">\n'
+            '  <channel>\n'
+            '    <title>NHC Atlantic Tropical Cyclones</title>\n'
+            '    <item>\n'
+            '      <title>Hurricane Alpha</title>\n'
+            '      <nhc:center>25.5N 78.2W</nhc:center>\n'
+            '      <nhc:movement>NNW at 15 mph</nhc:movement>\n'
+            '      <nhc:wind>120 mph</nhc:wind>\n'
+            '      <nhc:pressure>945 mb</nhc:pressure>\n'
+            '    </item>\n'
+            '    <item>\n'
+            '      <title>Tropical Storm Beta</title>\n'
+            '      <nhc:center>15.2N 65.1W</nhc:center>\n'
+            '      <nhc:movement>W at 10 mph</nhc:movement>\n'
+            '      <nhc:wind>55 mph</nhc:wind>\n'
+            '      <nhc:pressure>1002 mb</nhc:pressure>\n'
+            '    </item>\n'
+            '    <item>\n'
+            '      <title>Tropical Depression Gamma</title>\n'
+            '      <nhc:center>12.8N 55.4W</nhc:center>\n'
+            '      <nhc:movement>NW at 8 mph</nhc:movement>\n'
+            '      <nhc:wind>35 mph</nhc:wind>\n'
+            '      <nhc:pressure>1008 mb</nhc:pressure>\n'
+            '    </item>\n'
+            '  </channel>\n'
+            '</rss>\n'
+        )
         
         with patch.object(wems_server_default.http_client, 'get', new_callable=AsyncMock) as mock_get:
             def side_effect(url):
                 if "nhc.noaa.gov" in url:
-                    return MockResponse(storm_data)
-                else:  # NWS alerts
+                    return MockResponse(storm_rss)
+                elif "api.weather.gov" in url:
                     return MockResponse(mock_hurricane_alerts_empty_response)
+                return MockResponse(mock_hurricane_alerts_empty_response)
             
             mock_get.side_effect = side_effect
             
@@ -170,25 +175,34 @@ class TestCheckHurricanes:
     @pytest.mark.asyncio
     async def test_check_hurricanes_free_tier_limits_results(self, wems_server_free, mock_hurricane_alerts_empty_response):
         """Test that free tier limits hurricane results to 3."""
-        # Create mock data with many storms
-        storms = []
+        items = []
         for i in range(10):
-            storms.append({
-                "basin": "atlantic",
-                "name": f"Storm {i+1}",
-                "intensity": "Tropical Storm",
-                "movement": f"NW at {10+i} mph",
-                "location": f"{15+i}.0N {60+i}.0W"
-            })
-        
-        storm_data = {"summaries": storms}
+            items.append(
+                f'    <item>\n'
+                f'      <title>Storm {i+1}</title>\n'
+                f'      <nhc:center>{15+i}.0N {60+i}.0W</nhc:center>\n'
+                f'      <nhc:movement>NW at {10+i} mph</nhc:movement>\n'
+                f'      <nhc:wind>55 mph</nhc:wind>\n'
+                f'      <nhc:pressure>1000 mb</nhc:pressure>\n'
+                f'    </item>\n'
+            )
+        storm_rss = (
+            '<?xml version="1.0" encoding="UTF-8"?>\n'
+            '<rss version="2.0" xmlns:nhc="https://www.nhc.noaa.gov">\n'
+            '  <channel>\n'
+            '    <title>NHC Atlantic Tropical Cyclones</title>\n'
+            + ''.join(items) +
+            '  </channel>\n'
+            '</rss>\n'
+        )
         
         with patch.object(wems_server_free.http_client, 'get', new_callable=AsyncMock) as mock_get:
             def side_effect(url):
                 if "nhc.noaa.gov" in url:
-                    return MockResponse(storm_data)
-                else:  # NWS alerts
+                    return MockResponse(storm_rss)
+                elif "api.weather.gov" in url:
                     return MockResponse(mock_hurricane_alerts_empty_response)
+                return MockResponse(mock_hurricane_alerts_empty_response)
             
             mock_get.side_effect = side_effect
             
@@ -204,25 +218,34 @@ class TestCheckHurricanes:
     @pytest.mark.asyncio
     async def test_check_hurricanes_premium_shows_more_results(self, wems_server_premium, mock_hurricane_alerts_empty_response):
         """Test that premium tier shows up to 25 results."""
-        # Create mock data with many storms
-        storms = []
+        items = []
         for i in range(10):
-            storms.append({
-                "basin": "atlantic",
-                "name": f"Storm {i+1}",
-                "intensity": "Tropical Storm",
-                "movement": f"NW at {10+i} mph",
-                "location": f"{15+i}.0N {60+i}.0W"
-            })
-        
-        storm_data = {"summaries": storms}
+            items.append(
+                f'    <item>\n'
+                f'      <title>Storm {i+1}</title>\n'
+                f'      <nhc:center>{15+i}.0N {60+i}.0W</nhc:center>\n'
+                f'      <nhc:movement>NW at {10+i} mph</nhc:movement>\n'
+                f'      <nhc:wind>55 mph</nhc:wind>\n'
+                f'      <nhc:pressure>1000 mb</nhc:pressure>\n'
+                f'    </item>\n'
+            )
+        storm_rss = (
+            '<?xml version="1.0" encoding="UTF-8"?>\n'
+            '<rss version="2.0" xmlns:nhc="https://www.nhc.noaa.gov">\n'
+            '  <channel>\n'
+            '    <title>NHC Atlantic Tropical Cyclones</title>\n'
+            + ''.join(items) +
+            '  </channel>\n'
+            '</rss>\n'
+        )
         
         with patch.object(wems_server_premium.http_client, 'get', new_callable=AsyncMock) as mock_get:
             def side_effect(url):
                 if "nhc.noaa.gov" in url:
-                    return MockResponse(storm_data)
-                else:  # NWS alerts
+                    return MockResponse(storm_rss)
+                elif "api.weather.gov" in url:
                     return MockResponse(mock_hurricane_alerts_empty_response)
+                return MockResponse(mock_hurricane_alerts_empty_response)
             
             mock_get.side_effect = side_effect
             
@@ -235,14 +258,15 @@ class TestCheckHurricanes:
     
     @pytest.mark.asyncio
     async def test_check_hurricanes_http_error(self, wems_server_default):
-        """Test hurricane checking with HTTP error."""
+        """Test hurricane checking with HTTP error on all feeds — graceful fallback."""
         with patch.object(wems_server_default.http_client, 'get', new_callable=AsyncMock) as mock_get:
             mock_get.side_effect = httpx.HTTPError("Network error")
             
             result = await wems_server_default._check_hurricanes()
             
             assert_textcontent_result(result)
-            assert "Error fetching hurricane data" in result[0].text
+            # Per-feed and per-alert errors are caught; result shows no storms
+            assert "No active hurricanes" in result[0].text
     
     @pytest.mark.asyncio
     async def test_check_hurricanes_premium_with_forecast(self, wems_server_premium, mock_hurricane_response, mock_hurricane_alerts_response):

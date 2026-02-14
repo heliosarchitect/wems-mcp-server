@@ -223,63 +223,97 @@ def mock_solar_events_response():
 
 @pytest.fixture
 def mock_tsunami_response():
-    """Mock NOAA tsunami API response."""
+    """Mock NOAA Tsunami Warning Center Atom XML response with an active warning."""
     now = datetime.now(timezone.utc)
-    return [
-        {
-            "location": "Near the coast of Central Peru",
-            "magnitude": "7.2",
-            "time": (now - timedelta(hours=3)).isoformat().replace('+00:00', 'Z'),
-            "updated": now.isoformat().replace('+00:00', 'Z'),
-            "url": "https://www.tsunami.gov/events/PHEB/2024/02/13/PHEB240213.001.html",
-            "status": "active"
-        }
-    ]
+    updated_str = now.strftime('%Y-%m-%dT%H:%M:%SZ')
+    event_str = (now - timedelta(hours=3)).strftime('%Y-%m-%dT%H:%M:%SZ')
+    return (
+        '<?xml version="1.0" encoding="UTF-8"?>\n'
+        '<feed xmlns="http://www.w3.org/2005/Atom" xmlns:geo="http://www.w3.org/2003/01/geo/wgs84_pos#">\n'
+        '  <title>Tsunami Information</title>\n'
+        f'  <updated>{updated_str}</updated>\n'
+        '  <entry>\n'
+        '    <title>Near the coast of Central Peru</title>\n'
+        f'    <updated>{event_str}</updated>\n'
+        '    <summary type="xhtml"><div xmlns="http://www.w3.org/1999/xhtml">Magnitude 7.2 earthquake near Peru coast</div></summary>\n'
+        '    <geo:lat>-12.100</geo:lat>\n'
+        '    <geo:long>-77.000</geo:long>\n'
+        '  </entry>\n'
+        '</feed>\n'
+    )
 
 
 @pytest.fixture
 def mock_tsunami_empty_response():
-    """Mock empty NOAA tsunami API response."""
-    return []
+    """Mock empty NOAA Tsunami Warning Center Atom XML response."""
+    now = datetime.now(timezone.utc)
+    updated_str = now.strftime('%Y-%m-%dT%H:%M:%SZ')
+    return (
+        '<?xml version="1.0" encoding="UTF-8"?>\n'
+        '<feed xmlns="http://www.w3.org/2005/Atom" xmlns:geo="http://www.w3.org/2003/01/geo/wgs84_pos#">\n'
+        '  <title>Tsunami Information</title>\n'
+        f'  <updated>{updated_str}</updated>\n'
+        '</feed>\n'
+    )
 
 
 @pytest.fixture
 def mock_hurricane_response():
-    """Mock NHC CurrentSummaries API response."""
-    return {
-        "summaries": []
-    }
+    """Mock NHC RSS XML response — no active storms."""
+    return (
+        '<?xml version="1.0" encoding="UTF-8"?>\n'
+        '<rss version="2.0" xmlns:nhc="https://www.nhc.noaa.gov">\n'
+        '  <channel>\n'
+        '    <title>NHC Atlantic Tropical Cyclones</title>\n'
+        '  </channel>\n'
+        '</rss>\n'
+    )
 
 
 @pytest.fixture 
 def mock_hurricane_response_with_storms():
-    """Mock NHC CurrentSummaries API response with active storms."""
-    return {
-        "summaries": [
-            {
-                "basin": "atlantic",
-                "name": "Tropical Storm Alpha",
-                "intensity": "Tropical Storm",
-                "movement": "NW at 12 mph",
-                "location": "25.4N 78.8W"
-            },
-            {
-                "basin": "atlantic", 
-                "name": "Hurricane Beta",
-                "intensity": "Category 2 Hurricane",
-                "movement": "NNW at 15 mph",
-                "location": "28.2N 80.1W"
-            }
-        ]
-    }
+    """Mock NHC RSS XML response with active storms."""
+    return (
+        '<?xml version="1.0" encoding="UTF-8"?>\n'
+        '<rss version="2.0" xmlns:nhc="https://www.nhc.noaa.gov">\n'
+        '  <channel>\n'
+        '    <title>NHC Atlantic Tropical Cyclones</title>\n'
+        '    <item>\n'
+        '      <title>Tropical Storm Alpha</title>\n'
+        '      <description>Tropical Storm Alpha advisory</description>\n'
+        '      <link>https://www.nhc.noaa.gov/alpha</link>\n'
+        '      <pubDate>Thu, 13 Feb 2026 20:00:00 GMT</pubDate>\n'
+        '      <nhc:center>25.4N 78.8W</nhc:center>\n'
+        '      <nhc:movement>NW at 12 mph</nhc:movement>\n'
+        '      <nhc:wind>65 mph</nhc:wind>\n'
+        '      <nhc:pressure>998 mb</nhc:pressure>\n'
+        '    </item>\n'
+        '    <item>\n'
+        '      <title>Hurricane Beta</title>\n'
+        '      <description>Hurricane Beta advisory</description>\n'
+        '      <link>https://www.nhc.noaa.gov/beta</link>\n'
+        '      <pubDate>Thu, 13 Feb 2026 20:00:00 GMT</pubDate>\n'
+        '      <nhc:center>28.2N 80.1W</nhc:center>\n'
+        '      <nhc:movement>NNW at 15 mph</nhc:movement>\n'
+        '      <nhc:wind>105 mph</nhc:wind>\n'
+        '      <nhc:pressure>965 mb</nhc:pressure>\n'
+        '    </item>\n'
+        '  </channel>\n'
+        '</rss>\n'
+    )
 
 
 @pytest.fixture
 def mock_hurricane_empty_response():
-    """Mock empty NHC CurrentSummaries API response."""
-    return {
-        "summaries": []
-    }
+    """Mock empty NHC RSS XML response."""
+    return (
+        '<?xml version="1.0" encoding="UTF-8"?>\n'
+        '<rss version="2.0" xmlns:nhc="https://www.nhc.noaa.gov">\n'
+        '  <channel>\n'
+        '    <title>NHC Atlantic Tropical Cyclones</title>\n'
+        '  </channel>\n'
+        '</rss>\n'
+    )
 
 
 @pytest.fixture
@@ -682,15 +716,30 @@ def mock_old_alerts_response():
 
 
 class MockResponse:
-    """Mock HTTP response for testing."""
+    """Mock HTTP response for testing.
 
-    def __init__(self, json_data: Dict[str, Any], status_code: int = 200):
-        self.json_data = json_data
+    Accepts either a dict/list (JSON response) or a plain string
+    (XML / pipe-delimited text).  When *json_data* is a string the
+    response behaves like a text endpoint: ``.text`` returns the raw
+    string and ``.json()`` raises ``ValueError``.
+    """
+
+    def __init__(self, json_data, status_code: int = 200):
         self.status_code = status_code
-        self.headers = {'content-type': 'application/json'}
+
+        if isinstance(json_data, str):
+            self.text = json_data
+            self._json = None
+            self.headers = {'content-type': 'text/plain'}
+        else:
+            self._json = json_data
+            self.text = json.dumps(json_data)
+            self.headers = {'content-type': 'application/json'}
 
     def json(self):
-        return self.json_data
+        if self._json is None:
+            raise ValueError("Response is not JSON")
+        return self._json
 
     def raise_for_status(self):
         if self.status_code >= 400:
@@ -992,131 +1041,80 @@ def mock_empty_response():
 
 @pytest.fixture
 def mock_air_quality_response():
-    """Mock OpenAQ locations response with air quality measurements."""
-    return {
-        "meta": {"name": "openaq-api", "limit": 10, "page": 1, "found": 2},
-        "results": [
-            {
-                "id": 1001,
-                "name": "Downtown LA Monitor",
-                "locality": "Los Angeles",
-                "country": {"code": "US", "name": "United States"},
-                "coordinates": {"latitude": 34.0522, "longitude": -118.2437},
-                "latest": {"value": 42.3, "datetime": "2026-02-13T20:00:00Z"},
-            },
-            {
-                "id": 1002,
-                "name": "Pasadena Station",
-                "locality": "Pasadena",
-                "country": {"code": "US", "name": "United States"},
-                "coordinates": {"latitude": 34.1478, "longitude": -118.1445},
-                "latest": {"value": 55.1, "datetime": "2026-02-13T19:45:00Z"},
-            },
-        ]
-    }
+    """Mock EPA AirNow pipe-delimited response with air quality data."""
+    # Fields: date|date|time|tz|offset|observed|current|city|state|lat|lon|parameter|aqi|category|...
+    return (
+        "02/13/26|02/12/26||PST|-8|Y|Y|Los Angeles|CA|34.0522|-118.2437|PM2.5|42|Good|No||SCAQMD\n"
+        "02/13/26|02/12/26||PST|-8|Y|Y|Los Angeles|CA|34.0522|-118.2437|Ozone|38|Good|No||SCAQMD\n"
+        "02/13/26|02/12/26||PST|-8|Y|Y|Pasadena|CA|34.1478|-118.1445|PM2.5|55|Moderate|No||SCAQMD\n"
+    )
 
 
 @pytest.fixture
 def mock_air_quality_empty_response():
-    """Mock empty OpenAQ response."""
-    return {
-        "meta": {"name": "openaq-api", "limit": 10, "page": 1, "found": 0},
-        "results": []
-    }
+    """Mock empty AirNow response (header only, no data lines matching)."""
+    return ""
 
 
 @pytest.fixture
 def mock_air_quality_hazardous_response():
-    """Mock OpenAQ response with hazardous AQI values."""
-    return {
-        "meta": {"name": "openaq-api", "limit": 10, "page": 1, "found": 1},
-        "results": [
-            {
-                "id": 2001,
-                "name": "Industrial Zone Sensor",
-                "locality": "Houston",
-                "country": {"code": "US", "name": "United States"},
-                "coordinates": {"latitude": 29.7604, "longitude": -95.3698},
-                "latest": {"value": 350.0, "datetime": "2026-02-13T20:00:00Z"},
-            }
-        ]
-    }
+    """Mock AirNow response with hazardous AQI values."""
+    return (
+        "02/13/26|02/12/26||CST|-6|Y|Y|Houston|TX|29.7604|-95.3698|PM2.5|350|Hazardous|Yes||TCEQ\n"
+    )
 
 
 @pytest.fixture
 def mock_air_quality_multi_parameter_response():
-    """Mock OpenAQ response for multiple pollutant parameters."""
-    return {
-        "meta": {"name": "openaq-api", "limit": 10, "page": 1, "found": 1},
-        "results": [
-            {
-                "id": 3001,
-                "name": "Multi-Sensor Station",
-                "locality": "Denver",
-                "country": {"code": "US", "name": "United States"},
-                "coordinates": {"latitude": 39.7392, "longitude": -104.9903},
-                "latest": {"value": 78.5, "datetime": "2026-02-13T20:00:00Z"},
-            }
-        ]
-    }
+    """Mock AirNow response with multiple pollutant parameters."""
+    return (
+        "02/13/26|02/12/26||MST|-7|Y|Y|Denver|CO|39.7392|-104.9903|PM2.5|78|Moderate|No||CDPHE\n"
+        "02/13/26|02/12/26||MST|-7|Y|Y|Denver|CO|39.7392|-104.9903|PM10|65|Moderate|No||CDPHE\n"
+        "02/13/26|02/12/26||MST|-7|Y|Y|Denver|CO|39.7392|-104.9903|Ozone|45|Good|No||CDPHE\n"
+        "02/13/26|02/12/26||MST|-7|Y|Y|Denver|CO|39.7392|-104.9903|NO2|30|Good|No||CDPHE\n"
+        "02/13/26|02/12/26||MST|-7|Y|Y|Denver|CO|39.7392|-104.9903|SO2|15|Good|No||CDPHE\n"
+        "02/13/26|02/12/26||MST|-7|Y|Y|Denver|CO|39.7392|-104.9903|CO|8|Good|No||CDPHE\n"
+    )
 
 
 @pytest.fixture
 def mock_air_quality_locations_response():
-    """Mock OpenAQ locations response for coordinate-based search."""
-    return {
-        "meta": {"name": "openaq-api", "limit": 10, "page": 1, "found": 2},
-        "results": [
-            {
-                "id": 4001,
-                "name": "Nearby Station Alpha",
-                "locality": "San Francisco",
-                "country": {"code": "US", "name": "United States"},
-                "coordinates": {"latitude": 37.7749, "longitude": -122.4194},
-            },
-            {
-                "id": 4002,
-                "name": "Nearby Station Beta",
-                "locality": "Oakland",
-                "country": {"code": "US", "name": "United States"},
-                "coordinates": {"latitude": 37.8044, "longitude": -122.2712},
-            },
-        ]
-    }
+    """Mock AirNow response for coordinate-based search near San Francisco."""
+    return (
+        "02/13/26|02/12/26||PST|-8|Y|Y|San Francisco|CA|37.7749|-122.4194|PM2.5|65|Moderate|No||BAAQMD\n"
+        "02/13/26|02/12/26||PST|-8|Y|Y|Oakland|CA|37.8044|-122.2712|PM2.5|58|Moderate|No||BAAQMD\n"
+    )
 
 
 @pytest.fixture
 def mock_air_quality_measurements_response():
-    """Mock OpenAQ measurements response for a specific location."""
-    return {
-        "meta": {"name": "openaq-api", "limit": 1, "page": 1, "found": 1},
-        "results": [
-            {
-                "value": 65.2,
-                "datetime": {"utc": "2026-02-13T20:00:00Z"},
-                "parameter": {"id": 2, "name": "pm25"},
-            }
-        ]
-    }
+    """Mock AirNow measurements response (same format — kept for compat)."""
+    return (
+        "02/13/26|02/12/26||PST|-8|Y|Y|San Francisco|CA|37.7749|-122.4194|PM2.5|65|Moderate|No||BAAQMD\n"
+    )
 
 
 @pytest.fixture
 def mock_air_quality_many_stations_response():
-    """Mock OpenAQ response with many stations to test pagination."""
-    results = []
-    for i in range(10):
-        results.append({
-            "id": 5000 + i,
-            "name": f"Station {i+1}",
-            "locality": f"City {i+1}",
-            "country": {"code": "US", "name": "United States"},
-            "coordinates": {"latitude": 34.0 + i * 0.1, "longitude": -118.0 + i * 0.1},
-            "latest": {"value": 30.0 + i * 15, "datetime": "2026-02-13T20:00:00Z"},
-        })
-    return {
-        "meta": {"name": "openaq-api", "limit": 10, "page": 1, "found": 10},
-        "results": results
-    }
+    """Mock AirNow response with many stations to test pagination."""
+    lines = []
+    cities = [
+        ("Los Angeles", "CA", 34.0, -118.0),
+        ("San Diego", "CA", 32.7, -117.2),
+        ("San Jose", "CA", 37.3, -121.9),
+        ("Fresno", "CA", 36.7, -119.8),
+        ("Sacramento", "CA", 38.6, -121.5),
+        ("Oakland", "CA", 37.8, -122.3),
+        ("Bakersfield", "CA", 35.4, -119.0),
+        ("Riverside", "CA", 33.9, -117.4),
+        ("Stockton", "CA", 38.0, -121.3),
+        ("Modesto", "CA", 37.6, -121.0),
+    ]
+    for i, (city, st, lat, lon) in enumerate(cities):
+        aqi = 30 + i * 15
+        cat = "Good" if aqi <= 50 else "Moderate" if aqi <= 100 else "Unhealthy for Sensitive Groups" if aqi <= 150 else "Unhealthy"
+        lines.append(f"02/13/26|02/12/26||PST|-8|Y|Y|{city}|{st}|{lat}|{lon}|PM2.5|{aqi}|{cat}|No||EPA")
+    return "\n".join(lines) + "\n"
 
 
 @pytest.fixture
