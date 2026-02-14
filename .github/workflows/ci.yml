@@ -30,4 +30,4 @@ jobs:
         run: pytest -v --tb=short
 
       - name: Check import
-        run: python -c "from wems_mcp_server import server; print('Import OK')"
+        run: python -c "from wems_mcp_server import WemsServer; print('Import OK')"
