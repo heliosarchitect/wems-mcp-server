@@ -1,0 +1,90 @@
+# WEMS — Searchable Index
+
+## Features (by version)
+v1.7.3: Space Weather + Drought Monitor | LOG: "swpc.noaa.gov/json/" | GREP: grep "space.*weather\|drought" wems_mcp_server.py
+v1.5.0: Threat Advisory System | LOG: "Multi-source aggregation" | GREP: grep "threat.*advisory\|DHS.*NTAS" wems_mcp_server.py
+v1.4.0: Air Quality Monitoring | LOG: "airnowapi.org" | GREP: grep "air.*quality\|AQI\|PM2" wems_mcp_server.py
+v1.3.0: Flood Monitoring | LOG: "waterservices.usgs.gov" | GREP: grep "flood\|usgs.*water" wems_mcp_server.py
+v1.2.0: Hurricane + Wildfire Tracking | LOG: "nhc.noaa.gov" | GREP: grep "hurricane\|wildfire\|nhc" wems_mcp_server.py
+v1.1.0: Base Natural Hazard Tools | LOG: "earthquake.usgs.gov" | GREP: grep "usgs\|earthquake" wems_mcp_server.py
+v1.0.0: MCP Server Framework | LOG: "MCP server starting" | GREP: grep "Server.*starting\|MCP" wems_mcp_server.py
+
+## Log Signatures  
+MCP_SERVER_START: MCP server initialization | GREP: grep "Starting WEMS MCP server" ~/.openclaw/logs/wems.log
+TOOL_CALL: Individual monitoring tool invoked | GREP: grep "Tool call.*check_" ~/.openclaw/logs/wems.log
+API_TIMEOUT: External API call timeout | GREP: grep "timeout\|TimeoutError" ~/.openclaw/logs/wems.log
+API_RATE_LIMIT: HTTP 429 rate limiting detected | GREP: grep "429.*Too Many" ~/.openclaw/logs/wems.log
+AUTH_FAILURE: API authentication failed | GREP: grep "401\|403\|authentication" ~/.openclaw/logs/wems.log
+WEBHOOK_FIRE: Alert threshold exceeded, webhook sent | GREP: grep "webhook.*fire\|alert.*sent" ~/.openclaw/logs/wems.log
+TIER_GATE: Premium feature blocked for free tier | GREP: grep "tier.*free\|premium.*required" ~/.openclaw/logs/wems.log
+EMPTY_RESPONSE: API returned no data | GREP: grep "no.*events\|empty.*response" ~/.openclaw/logs/wems.log
+PARSE_ERROR: JSON/XML parsing failure | GREP: grep "parse.*error\|JSON.*decode" ~/.openclaw/logs/wems.log
+CONFIG_LOAD: Configuration file processing | GREP: grep "config.*load\|yaml.*parse" ~/.openclaw/logs/wems.log
+
+## MCP Tools (Production)
+check_earthquakes — USGS earthquake monitoring with magnitude filtering
+check_solar — NOAA space weather K-index and solar activity monitoring
+check_volcanoes — Smithsonian GVP + USGS volcanic activity alerts
+check_tsunamis — NOAA PTWC + CTWC tsunami warning monitoring
+check_hurricanes — NHC tropical cyclone tracking with forecast paths
+check_wildfires — NWS + NIFC fire weather alerts and active perimeters
+check_severe_weather — NWS tornado, thunderstorm, and flood alerts
+check_floods — USGS river gauge data and flood warning monitoring
+check_air_quality — OpenAQ global AQI monitoring with health thresholds
+check_threat_advisories — DHS NTAS + State Dept + CISA threat monitoring
+check_space_weather_alerts — NOAA SWPC active space weather alerts
+check_drought_status — US Drought Monitor D0-D4 drought level tracking (Premium)
+configure_alerts — webhook and threshold configuration management
+
+## API Endpoints
+https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/{magnitude}_{period}.geojson — USGS earthquake data
+https://services.swpc.noaa.gov/json/notifications.json — NOAA space weather alerts
+https://services.swpc.noaa.gov/products/summary.json — space weather summary
+https://volcano.si.edu/api/v1/eruptions — Smithsonian Global Volcanism Program
+https://www.tsunami.gov/events.xml — NOAA tsunami warning feed
+https://api.weather.gov/alerts/active — National Weather Service active alerts
+https://www.nhc.noaa.gov/gis/forecast/archive/ — hurricane forecast data
+https://firms.modaps.eosdis.nasa.gov/api/area/ — NASA FIRMS fire data
+https://waterservices.usgs.gov/nwis/iv — USGS real-time water data
+https://api.openaq.org/v1/latest — OpenAQ air quality measurements
+https://droughtmonitor.unl.edu/DmData/GISData.aspx — US Drought Monitor data
+https://www.dhs.gov/ntas/current-alert — DHS NTAS current terrorism alert
+
+## Tier Gates (FREE vs PREMIUM)
+MIN_MAGNITUDE: Free tier limited to 4.5+, Premium allows 1.0+ | GREP: grep "min_magnitude.*4\.5" wems_mcp_server.py
+MAX_RESULTS: Free tier 3-5 results, Premium 50+ | GREP: grep "max_results.*[3-5]" wems_mcp_server.py
+REGIONAL_FILTER: Premium-only geographic filtering | GREP: grep "region_filter.*False" wems_mcp_server.py
+DROUGHT_MONITOR: Premium-only feature | GREP: grep "drought_status.*False" wems_mcp_server.py
+FORECAST_DATA: Premium-only forecast tracks/models | GREP: grep "forecast.*False" wems_mcp_server.py
+HISTORICAL_DATA: Premium-only historical event access | GREP: grep "historical.*False" wems_mcp_server.py
+
+## Behavioral Markers
+USGS_CONNECTIVITY: Earthquake API responding | GREP: curl -s "https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/significant_hour.geojson" | jq .
+NOAA_SWPC_HEALTH: Space weather API online | GREP: curl -s "https://services.swpc.noaa.gov/json/notifications.json" | head
+TSUNAMI_WARN_ACTIVE: Active tsunami warnings detected | GREP: grep -i "warning\|watch" tsunami_feed.xml
+HURRICANE_SEASON: Atlantic hurricane season (June-November) | GREP: grep "atlantic.*storm\|nhc.*active" ~/.openclaw/logs/wems.log
+FIRE_SEASON: High wildfire activity periods | GREP: grep "fire.*weather\|red.*flag" ~/.openclaw/logs/wems.log
+AIR_QUALITY_UNHEALTHY: AQI > 100 threshold breached | GREP: grep "AQI.*[1-9][0-9][0-9]" ~/.openclaw/logs/wems.log
+GEOMAG_STORM: K-index ≥ 5 geomagnetic storm active | GREP: grep "K.*index.*[5-9]\|geomagnetic" ~/.openclaw/logs/wems.log
+DROUGHT_EXCEPTIONAL: D4 exceptional drought detected | GREP: grep "D4\|exceptional.*drought" ~/.openclaw/logs/wems.log
+TERROR_ELEVATED: DHS NTAS elevated threat level | GREP: grep "elevated\|DHS.*NTAS" ~/.openclaw/logs/wems.log
+WEBHOOK_SUCCESS: Alert successfully sent to webhook URL | GREP: grep "webhook.*200\|alert.*delivered" ~/.openclaw/logs/wems.log
+
+## Configuration Keys
+EARTHQUAKE_MIN_MAGNITUDE — minimum earthquake magnitude threshold (default: 4.5 free, 1.0 premium)
+SOLAR_KP_THRESHOLD — geomagnetic activity K-index threshold (default: 5)
+VOLCANO_ALERT_LEVELS — volcanic activity alert levels to monitor (WARNING, WATCH, ADVISORY)
+TSUNAMI_REGIONS — ocean basins to monitor (pacific, atlantic, indian)
+HURRICANE_BASINS — storm basins to track (atlantic, pacific)
+WILDFIRE_STATES — US states for fire weather alerts
+AIR_QUALITY_THRESHOLD — AQI unhealthy threshold (default: 100)
+WEBHOOK_URLS — alert delivery endpoints for each hazard type
+TIER_MODE — free or premium feature access level
+
+## Error Patterns
+HTTP_TIMEOUT: API request timeout (>10s) | GREP: grep "timeout.*10\|TimeoutError" ~/.openclaw/logs/wems.log
+API_DOWN: Government API service unavailable | GREP: grep "5[0-9][0-9].*error\|service.*unavailable" ~/.openclaw/logs/wems.log
+RATE_LIMITED: API requests hitting daily/hourly limits | GREP: grep "429\|rate.*limit.*exceeded" ~/.openclaw/logs/wems.log
+JSON_PARSE_FAIL: Malformed API response | GREP: grep "JSON.*decode\|parse.*error" ~/.openclaw/logs/wems.log
+XML_PARSE_FAIL: Malformed XML feed (tsunami, volcano) | GREP: grep "XML.*parse\|ET\.parse.*error" ~/.openclaw/logs/wems.log
+NETWORK_ERROR: Connection failure to government APIs | GREP: grep "Connection.*error\|Network.*unreachable" ~/.openclaw/logs/wems.log
