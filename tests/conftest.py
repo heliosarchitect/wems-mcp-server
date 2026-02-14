@@ -55,6 +55,10 @@ def sample_config():
             "air_quality": {
                 "enabled": True,
                 "webhook": "https://webhook.example.com/air_quality"
+            },
+            "threat_advisories": {
+                "enabled": True,
+                "webhook": "https://webhook.example.com/threat_advisories"
             }
         }
     }
@@ -1113,6 +1117,194 @@ def mock_air_quality_many_stations_response():
         "meta": {"name": "openaq-api", "limit": 10, "page": 1, "found": 10},
         "results": results
     }
+
+
+@pytest.fixture
+def mock_dhs_ntas_response():
+    """Mock DHS NTAS XML response with active terrorism advisories."""
+    return (
+        '<?xml version="1.0" encoding="UTF-8"?>\n'
+        '<alerts>\n'
+        '<alert start="2026/01/15 14:00" end="2026/07/15 14:00" '
+        'type="Elevated Threat" '
+        'link="https://www.dhs.gov/ntas/advisory/elevated-threat-2026">\n'
+        '<summary><![CDATA[DHS has issued an elevated threat advisory due to the current global security environment.]]></summary>\n'
+        '<details><![CDATA[<p>The United States remains in a heightened threat environment.</p>]]></details>\n'
+        '<locations>\n'
+        '<location><![CDATA[United States]]></location>\n'
+        '</locations>\n'
+        '<sectors>\n'
+        '<sector><![CDATA[Transportation]]></sector>\n'
+        '<sector><![CDATA[Critical Infrastructure]]></sector>\n'
+        '</sectors>\n'
+        '<duration><![CDATA[Until July 15, 2026]]></duration>\n'
+        '</alert>\n'
+        '</alerts>\n'
+    )
+
+
+@pytest.fixture
+def mock_dhs_ntas_imminent_response():
+    """Mock DHS NTAS XML with imminent threat."""
+    return (
+        '<?xml version="1.0" encoding="UTF-8"?>\n'
+        '<alerts>\n'
+        '<alert start="2026/02/13 10:00" end="2026/02/20 10:00" '
+        'type="Imminent Threat" '
+        'link="https://www.dhs.gov/ntas/advisory/imminent-threat-2026">\n'
+        '<summary><![CDATA[DHS has issued an imminent threat advisory based on credible intelligence.]]></summary>\n'
+        '<details><![CDATA[<p>Credible threat information indicates potential attacks.</p>]]></details>\n'
+        '<locations>\n'
+        '<location><![CDATA[Major metropolitan areas]]></location>\n'
+        '<location><![CDATA[Transportation hubs]]></location>\n'
+        '</locations>\n'
+        '<sectors>\n'
+        '<sector><![CDATA[Transportation]]></sector>\n'
+        '</sectors>\n'
+        '</alert>\n'
+        '</alerts>\n'
+    )
+
+
+@pytest.fixture
+def mock_state_dept_travel_response():
+    """Mock State Dept travel advisories RSS response."""
+    return (
+        '<?xml version="1.0" encoding="UTF-8"?>\n'
+        '<rss xmlns:dc="http://purl.org/dc/elements/1.1/" version="2.0">\n'
+        '  <channel>\n'
+        '    <title>travel.state.gov: Travel Advisories</title>\n'
+        '    <item>\n'
+        '      <title>Afghanistan - Level 4: Do Not Travel</title>\n'
+        '      <link>https://travel.state.gov/content/travel/en/traveladvisories/af.html</link>\n'
+        '      <pubDate>Mon, 10 Feb 2026</pubDate>\n'
+        '      <description><![CDATA[Do not travel to Afghanistan due to armed conflict, terrorism, and kidnapping.]]></description>\n'
+        '      <category domain="Threat-Level">Level 4: Do Not Travel</category>\n'
+        '      <category domain="Country-Tag">AF</category>\n'
+        '      <category domain="Keyword">advisory</category>\n'
+        '    </item>\n'
+        '    <item>\n'
+        '      <title>Iraq - Level 4: Do Not Travel</title>\n'
+        '      <link>https://travel.state.gov/content/travel/en/traveladvisories/iq.html</link>\n'
+        '      <pubDate>Thu, 06 Feb 2026</pubDate>\n'
+        '      <description><![CDATA[Do not travel to Iraq due to terrorism, kidnapping, and armed conflict.]]></description>\n'
+        '      <category domain="Threat-Level">Level 4: Do Not Travel</category>\n'
+        '      <category domain="Country-Tag">IQ</category>\n'
+        '      <category domain="Keyword">advisory</category>\n'
+        '    </item>\n'
+        '    <item>\n'
+        '      <title>Mexico - Level 2: Exercise Increased Caution</title>\n'
+        '      <link>https://travel.state.gov/content/travel/en/traveladvisories/mx.html</link>\n'
+        '      <pubDate>Wed, 05 Feb 2026</pubDate>\n'
+        '      <description><![CDATA[Exercise increased caution in Mexico due to crime and kidnapping.]]></description>\n'
+        '      <category domain="Threat-Level">Level 2: Exercise Increased Caution</category>\n'
+        '      <category domain="Country-Tag">MX</category>\n'
+        '      <category domain="Keyword">advisory</category>\n'
+        '    </item>\n'
+        '    <item>\n'
+        '      <title>Canada - Level 1: Exercise Normal Precautions</title>\n'
+        '      <link>https://travel.state.gov/content/travel/en/traveladvisories/ca.html</link>\n'
+        '      <pubDate>Mon, 03 Feb 2026</pubDate>\n'
+        '      <description><![CDATA[Exercise normal precautions in Canada.]]></description>\n'
+        '      <category domain="Threat-Level">Level 1: Exercise Normal Precautions</category>\n'
+        '      <category domain="Country-Tag">CA</category>\n'
+        '      <category domain="Keyword">advisory</category>\n'
+        '    </item>\n'
+        '  </channel>\n'
+        '</rss>\n'
+    )
+
+
+@pytest.fixture
+def mock_threat_advisories_empty_response():
+    """Mock empty DHS NTAS response - no active threats."""
+    return '<?xml version="1.0" encoding="UTF-8"?>\n<alerts>\n</alerts>\n'
+
+
+@pytest.fixture
+def mock_state_dept_empty_response():
+    """Mock empty State Dept travel RSS response."""
+    return (
+        '<?xml version="1.0" encoding="UTF-8"?>\n'
+        '<rss version="2.0">\n'
+        '  <channel>\n'
+        '    <title>travel.state.gov: Travel Advisories</title>\n'
+        '  </channel>\n'
+        '</rss>\n'
+    )
+
+
+@pytest.fixture
+def mock_elevated_threat_response():
+    """Mock elevated DHS NTAS response."""
+    return (
+        '<?xml version="1.0" encoding="UTF-8"?>\n'
+        '<alerts>\n'
+        '<alert start="2026/02/01 00:00" end="2026/08/01 00:00" '
+        'type="Elevated Threat" '
+        'link="https://www.dhs.gov/ntas/advisory/elevated-2026">\n'
+        '<summary><![CDATA[The United States remains in a heightened threat environment.]]></summary>\n'
+        '<details><![CDATA[Multiple factors contribute to the current threat environment.]]></details>\n'
+        '<locations>\n'
+        '<location><![CDATA[United States]]></location>\n'
+        '</locations>\n'
+        '<sectors>\n'
+        '<sector><![CDATA[All sectors]]></sector>\n'
+        '</sectors>\n'
+        '</alert>\n'
+        '</alerts>\n'
+    )
+
+
+@pytest.fixture
+def mock_many_travel_advisories_response():
+    """Mock State Dept response with many advisories to test pagination."""
+    items = []
+    countries = [
+        ("Afghanistan", "AF", 4), ("Iraq", "IQ", 4), ("Syria", "SY", 4),
+        ("Somalia", "SO", 4), ("Yemen", "YE", 4), ("Libya", "LY", 4),
+        ("South Sudan", "SS", 4), ("Mali", "ML", 4), ("Central African Republic", "CF", 4),
+        ("North Korea", "KP", 4), ("Iran", "IR", 4), ("Venezuela", "VE", 4),
+    ]
+    for name, code, level in countries:
+        items.append(
+            f'    <item>\n'
+            f'      <title>{name} - Level {level}: Do Not Travel</title>\n'
+            f'      <link>https://travel.state.gov/content/travel/en/traveladvisories/{code.lower()}.html</link>\n'
+            f'      <pubDate>Mon, 10 Feb 2026</pubDate>\n'
+            f'      <description><![CDATA[Do not travel to {name}.]]></description>\n'
+            f'      <category domain="Threat-Level">Level {level}: Do Not Travel</category>\n'
+            f'      <category domain="Country-Tag">{code}</category>\n'
+            f'    </item>\n'
+        )
+    return (
+        '<?xml version="1.0" encoding="UTF-8"?>\n'
+        '<rss version="2.0">\n'
+        '  <channel>\n'
+        '    <title>travel.state.gov: Travel Advisories</title>\n'
+        + ''.join(items) +
+        '  </channel>\n'
+        '</rss>\n'
+    )
+
+
+@pytest.fixture
+def mock_cyber_advisories_response():
+    """Mock CISA cyber advisories RSS response."""
+    return (
+        '<?xml version="1.0" encoding="UTF-8"?>\n'
+        '<rss version="2.0">\n'
+        '  <channel>\n'
+        '    <title>CISA Cybersecurity Advisories</title>\n'
+        '    <item>\n'
+        '      <title>Critical Infrastructure Vulnerability Alert</title>\n'
+        '      <link>https://www.cisa.gov/advisories/aa26-044a</link>\n'
+        '      <pubDate>Thu, 13 Feb 2026</pubDate>\n'
+        '      <description><![CDATA[CISA has identified active exploitation of a critical vulnerability.]]></description>\n'
+        '    </item>\n'
+        '  </channel>\n'
+        '</rss>\n'
+    )
 
 
 def assert_textcontent_result(result, expected_content_contains=None, expected_count=1):

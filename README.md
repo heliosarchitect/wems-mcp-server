@@ -13,7 +13,7 @@ A powerful Model Context Protocol (MCP) server that connects AI assistants to au
 
 ## ⚡ Key Features
 
-- 🌋 **4 Authoritative Data Sources**: USGS, NOAA (2x), Smithsonian GVP
+- 🌋 **7+ Authoritative Data Sources**: USGS, NOAA, Smithsonian GVP, NHC, NIFC, OpenAQ, DHS, State Dept, CISA
 - 🎯 **Real-time Monitoring**: Live data feeds with customizable thresholds
 - 🔔 **Smart Alerts**: Webhook notifications for critical events
 - 🗺️ **Geographic Filtering**: Target specific regions or global coverage
@@ -32,6 +32,7 @@ A powerful Model Context Protocol (MCP) server that connects AI assistants to au
 | 🔥 **Wildfires** | NWS + NIFC | Fire weather alerts & active perimeters |
 | ⛈️ **Severe Weather** | NWS Alerts | Tornadoes, thunderstorms, floods, winter storms |
 | 💨 **Air Quality** | OpenAQ | Global AQI, PM2.5, PM10, O₃, NO₂, SO₂, CO |
+| 🛡️ **Threat Advisories** | DHS NTAS + State Dept + CISA | Terrorism, travel risk, cyber threats |
 
 ## 🚀 Quick Start
 
@@ -93,6 +94,7 @@ print(asyncio.run(check_earthquakes(min_magnitude=6.0)))
 | `check_severe_weather` | Monitor tornadoes, thunderstorms, flash floods | 1.2.0 |
 | `check_floods` | Flood warnings & USGS river gauge data | 1.3.0 |
 | `check_air_quality` | AQI monitoring with pollutant data | 1.4.0 |
+| `check_threat_advisories` | Terrorism, travel risk & cyber threat monitoring | 1.5.0 |
 | `configure_alerts` | Update alert thresholds and webhooks | 1.0.0 |
 
 ## Configuration
@@ -125,6 +127,13 @@ alerts:
 - NOAA Central Tsunami Warning Center  
 - Smithsonian Global Volcanism Program
 - NOAA Space Weather Prediction Center
+- National Hurricane Center (NHC)
+- National Interagency Fire Center (NIFC)
+- NWS Alerts API
+- OpenAQ (Global Air Quality)
+- DHS National Terrorism Advisory System (NTAS)
+- U.S. State Department Travel Advisories
+- CISA Cybersecurity Advisories
 
 ## OpenClaw Integration
 
@@ -198,9 +207,11 @@ curl -X POST https://your-monitoring.com/api/events \
 | ~~1.2.0~~ | ⛈️ Severe Weather (tornadoes, thunderstorms, flash floods) | NWS Alerts API | ✅ Shipped |
 | ~~1.3.0~~ | 🌊 Floods (river gauges, flood warnings) | USGS Water Services + NOAA | ✅ Shipped |
 | ~~1.4.0~~ | 💨 Air Quality (AQI, smoke, pollution) | OpenAQ | ✅ Shipped |
-| 1.5.0 | 🛡️ Threat Advisories (terrorism, travel risk) | DHS NTAS, State Dept | 📋 Planned |
+| ~~1.5.0~~ | 🛡️ Threat Advisories (terrorism, travel risk, cyber) | DHS NTAS, State Dept, CISA | ✅ Shipped |
 
 All data sources are **free, public, and require no API keys**. Zero-config by design.
+
+> 🎉 **Roadmap Complete!** WEMS v1.5.0 delivers the full vision: 11 monitoring tools covering natural hazards, environmental quality, and security threats — all from authoritative government sources with zero configuration.
 
 ---
 

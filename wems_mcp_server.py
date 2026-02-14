@@ -9,7 +9,9 @@ Free tier provides essential safety alerts. Premium unlocks full depth.
 import asyncio
 import json
 import os
+import re
 import sys
+import xml.etree.ElementTree as ET
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional
 
@@ -56,6 +58,12 @@ TIER_LIMITS = {
         "air_quality_city_filter": False,     # No city/zip filtering
         "air_quality_coordinates": True,      # Allow lat/lon search
         "air_quality_forecast": False,        # No forecast data
+        "threat_max_results": 3,              # Limited advisories
+        "threat_types": ["terrorism"],         # Terrorism (DHS NTAS) only
+        "threat_countries_filter": False,     # No country filtering
+        "threat_region_filter": False,        # No region filtering
+        "threat_include_expired": False,      # Current advisories only
+        "threat_include_historical": False,   # No historical data
         "configure_alerts": False,             # No custom alert config
         "polling_note": "Updates every 15 minutes",
     },
@@ -90,6 +98,12 @@ TIER_LIMITS = {
         "air_quality_city_filter": True,     # City/zip filtering
         "air_quality_coordinates": True,     # Lat/lon search
         "air_quality_forecast": True,        # Forecast data
+        "threat_max_results": 25,            # Full advisories
+        "threat_types": ["terrorism", "travel", "cyber", "all"],  # All threat types
+        "threat_countries_filter": True,     # Country filtering
+        "threat_region_filter": True,        # Region filtering
+        "threat_include_expired": True,      # Include expired advisories
+        "threat_include_historical": True,   # Historical data
         "configure_alerts": True,              # Full alert customization
         "polling_note": "Real-time updates",
     }
@@ -422,6 +436,45 @@ class WemsServer:
                         }
                     }
                 ),
+                Tool(
+                    name="check_threat_advisories",
+                    description="Monitor threat advisories from DHS NTAS and State Department travel warnings",
+                    inputSchema={
+                        "type": "object",
+                        "properties": {
+                            "threat_types": {
+                                "type": "array",
+                                "items": {"type": "string"},
+                                "description": "Types: terrorism, travel, cyber, all (free: terrorism only)",
+                                "default": ["terrorism"]
+                            },
+                            "countries": {
+                                "type": "array",
+                                "items": {"type": "string"},
+                                "description": "Country codes for travel advisories (premium only)"
+                            },
+                            "region": {
+                                "type": "string",
+                                "description": "Geographic region filter (premium only)"
+                            },
+                            "threat_level": {
+                                "type": "array",
+                                "items": {"type": "string"},
+                                "description": "Minimum threat levels: elevated, imminent (for NTAS); 1-4 (for travel)"
+                            },
+                            "include_expired": {
+                                "type": "boolean",
+                                "description": "Include expired advisories (premium only)",
+                                "default": False
+                            },
+                            "include_historical": {
+                                "type": "boolean",
+                                "description": "Include historical data (premium only)",
+                                "default": False
+                            }
+                        }
+                    }
+                ),
             ]
             
             # configure_alerts only available on premium
@@ -467,6 +520,8 @@ class WemsServer:
                 return await self._check_floods(**arguments)
             elif name == "check_air_quality":
                 return await self._check_air_quality(**arguments)
+            elif name == "check_threat_advisories":
+                return await self._check_threat_advisories(**arguments)
             elif name == "configure_alerts":
                 if self.tier != TIER_PREMIUM:
                     return [TextContent(type="text", text=f"🔒 Custom alert configuration requires WEMS Premium.{_upgrade_message('Custom alert thresholds')}")]
@@ -1776,6 +1831,539 @@ class WemsServer:
                 "aqi_label": label,
                 "timestamp": datetime.now(timezone.utc).isoformat(),
                 "alert_level": "hazardous" if value > 300 else "critical" if value > 200 else "warning"
+            }
+            try:
+                await self.http_client.post(webhook_url, json=payload)
+            except httpx.HTTPError:
+                pass
+
+    # ─── Threat Advisories ─────────────────────────────────────────────
+
+    # Travel advisory level descriptions
+    _TRAVEL_LEVELS = {
+        "1": ("🟢", "Exercise Normal Precautions"),
+        "2": ("🟡", "Exercise Increased Caution"),
+        "3": ("🟠", "Reconsider Travel"),
+        "4": ("🔴", "Do Not Travel"),
+    }
+
+    # NTAS threat type icons
+    _NTAS_ICONS = {
+        "elevated": "🟡",
+        "imminent": "🔴",
+    }
+
+    async def _check_threat_advisories(
+        self,
+        threat_types: Optional[List[str]] = None,
+        countries: Optional[List[str]] = None,
+        region: Optional[str] = None,
+        threat_level: Optional[List[str]] = None,
+        include_expired: bool = False,
+        include_historical: bool = False,
+    ) -> List[TextContent]:
+        """Monitor threat advisories from DHS NTAS and State Dept with tier-based access."""
+
+        limits = self.limits
+
+        # ── gate: threat types ──
+        allowed_types = limits["threat_types"]
+        if threat_types is None:
+            if self.tier == TIER_FREE:
+                threat_types = ["terrorism"]
+            else:
+                threat_types = ["all"]
+        else:
+            if self.tier == TIER_FREE:
+                blocked = [t for t in threat_types if t not in allowed_types and t != "all"]
+                if blocked or "all" in threat_types:
+                    threat_types = [t for t in threat_types if t in allowed_types]
+                    if not threat_types:
+                        return [TextContent(
+                            type="text",
+                            text=f"🔒 Requested threat types require WEMS Premium. Free tier supports: {', '.join(allowed_types)}.{_upgrade_message('All threat types (travel, cyber, terrorism)')}"
+                        )]
+
+        # ── gate: country filtering ──
+        if countries and not limits["threat_countries_filter"]:
+            return [TextContent(
+                type="text",
+                text=f"🔒 Country filtering requires WEMS Premium.{_upgrade_message('Country-specific travel advisories')}"
+            )]
+
+        # ── gate: region filtering ──
+        if region and not limits["threat_region_filter"]:
+            return [TextContent(
+                type="text",
+                text=f"🔒 Region filtering requires WEMS Premium.{_upgrade_message('Region-specific threat monitoring')}"
+            )]
+
+        # ── gate: expired advisories ──
+        if include_expired and not limits["threat_include_expired"]:
+            return [TextContent(
+                type="text",
+                text=f"🔒 Expired advisories require WEMS Premium.{_upgrade_message('Historical threat advisory data')}"
+            )]
+
+        # ── gate: historical data ──
+        if include_historical and not limits["threat_include_historical"]:
+            return [TextContent(
+                type="text",
+                text=f"🔒 Historical threat data requires WEMS Premium.{_upgrade_message('Historical threat advisory data')}"
+            )]
+
+        max_results = limits["threat_max_results"]
+
+        # Resolve "all" into specific types
+        effective_types = set()
+        for t in threat_types:
+            if t == "all":
+                effective_types.update(["terrorism", "travel", "cyber"])
+            else:
+                effective_types.add(t)
+
+        try:
+            result_text = ["🛡️ **Threat Advisory Report**\n\n"]
+            all_advisories: List[Dict[str, Any]] = []
+
+            # ── 1. DHS NTAS (terrorism) ──
+            if "terrorism" in effective_types:
+                ntas_advisories = await self._fetch_ntas_advisories(
+                    include_expired=include_expired
+                )
+                all_advisories.extend(ntas_advisories)
+
+            # ── 2. State Dept Travel Advisories ──
+            if "travel" in effective_types:
+                travel_advisories = await self._fetch_travel_advisories(
+                    countries=countries,
+                    region=region,
+                    threat_level=threat_level,
+                )
+                all_advisories.extend(travel_advisories)
+
+            # ── 3. Cyber Threat Advisories (CISA) ──
+            if "cyber" in effective_types:
+                cyber_advisories = await self._fetch_cyber_advisories()
+                all_advisories.extend(cyber_advisories)
+
+            # Filter by threat level if specified (for NTAS)
+            if threat_level:
+                filtered = []
+                for adv in all_advisories:
+                    adv_level = adv.get("level", "").lower()
+                    adv_source = adv.get("source", "")
+                    if adv_source == "ntas":
+                        if adv_level in [tl.lower() for tl in threat_level]:
+                            filtered.append(adv)
+                    elif adv_source == "travel":
+                        # Travel levels are 1-4
+                        adv_num = adv.get("level_num", "0")
+                        if str(adv_num) in threat_level:
+                            filtered.append(adv)
+                    else:
+                        filtered.append(adv)
+                all_advisories = filtered
+
+            if not all_advisories:
+                result_text.append("🟢 No active threat advisories")
+                if "terrorism" in effective_types:
+                    result_text.append("\n   📋 DHS NTAS: No current terrorism advisories")
+                if "travel" in effective_types:
+                    if countries:
+                        result_text.append(f"\n   📋 State Dept: No advisories matching filter")
+                    else:
+                        result_text.append("\n   📋 State Dept: No high-level travel advisories")
+                if "cyber" in effective_types:
+                    result_text.append("\n   📋 CISA: No current cyber advisories")
+                result_text.append("\n")
+            else:
+                result_text.append(f"**Active Advisories:** {len(all_advisories)} found\n\n")
+
+                shown = 0
+                for adv in all_advisories:
+                    if shown >= max_results:
+                        remaining = len(all_advisories) - max_results
+                        if remaining > 0 and self.tier == TIER_FREE:
+                            result_text.append(f"\n... and {remaining} more advisories.{_upgrade_message('Full threat advisory results (up to 25)')}")
+                        elif remaining > 0:
+                            result_text.append(f"\n... and {remaining} more advisories (showing top {max_results})")
+                        break
+
+                    result_text.append(self._format_advisory(adv))
+                    result_text.append("\n")
+
+                    # Trigger webhook for elevated/imminent threats
+                    if adv.get("source") == "ntas" and adv.get("level", "").lower() in ("elevated", "imminent"):
+                        await self._check_threat_advisory_alert(
+                            adv.get("title", ""),
+                            adv.get("level", ""),
+                            adv.get("summary", ""),
+                            adv.get("source", ""),
+                        )
+                    elif adv.get("source") == "travel" and adv.get("level_num", 0) >= 3:
+                        await self._check_threat_advisory_alert(
+                            adv.get("title", ""),
+                            f"Level {adv.get('level_num', 0)}",
+                            adv.get("summary", ""),
+                            adv.get("source", ""),
+                        )
+
+                    shown += 1
+
+            # Data source attribution
+            sources = []
+            if "terrorism" in effective_types:
+                sources.append("DHS NTAS")
+            if "travel" in effective_types:
+                sources.append("State Dept Travel Advisories")
+            if "cyber" in effective_types:
+                sources.append("CISA")
+            result_text.append(f"\n🔍 Data sources: {', '.join(sources)}\n")
+
+            if self.tier == TIER_FREE:
+                result_text.append(f"\n📋 Free tier: US terrorism advisories only, max {max_results} results. {limits['polling_note']}")
+                result_text.append(_upgrade_message("Global travel advisories + cyber threats + country filtering"))
+
+            return [TextContent(type="text", text="".join(result_text))]
+
+        except httpx.HTTPError as e:
+            return [TextContent(type="text", text=f"❌ Error fetching threat advisory data: {e}")]
+        except Exception as e:
+            return [TextContent(type="text", text=f"❌ Unexpected error in threat advisory monitoring: {e}")]
+
+    async def _fetch_ntas_advisories(self, include_expired: bool = False) -> List[Dict[str, Any]]:
+        """Fetch DHS NTAS terrorism advisories via XML feed.
+
+        Endpoint: https://www.dhs.gov/ntas/1.1/alerts.xml
+        Returns XML with <alerts> containing <alert> elements.
+        """
+        url = "https://www.dhs.gov/ntas/1.1/alerts.xml"
+        advisories: List[Dict[str, Any]] = []
+
+        response = await self.http_client.get(url, headers={
+            "Accept": "application/xml, text/xml",
+            "User-Agent": "WEMS-MCP-Server/1.5.0"
+        })
+        response.raise_for_status()
+        xml_text = response.text
+
+        try:
+            root = ET.fromstring(xml_text)
+        except ET.ParseError:
+            return advisories
+
+        for alert_elem in root.findall("alert"):
+            start_str = alert_elem.get("start", "")
+            end_str = alert_elem.get("end", "")
+            alert_type = alert_elem.get("type", "")
+            link = alert_elem.get("link", "") or alert_elem.get("href", "")
+
+            # Parse dates (format: YYYY/MM/DD HH:MM in GMT)
+            start_dt = self._parse_ntas_date(start_str)
+            end_dt = self._parse_ntas_date(end_str) if end_str else None
+
+            # Skip expired if not requested
+            if not include_expired and end_dt and end_dt < datetime.now(timezone.utc):
+                continue
+
+            summary_elem = alert_elem.find("summary")
+            details_elem = alert_elem.find("details")
+            summary = summary_elem.text if summary_elem is not None and summary_elem.text else ""
+            details = details_elem.text if details_elem is not None and details_elem.text else ""
+            # Strip HTML tags from details
+            details = re.sub(r"<[^>]+>", "", details).strip()
+
+            # Locations
+            locations = []
+            locs_elem = alert_elem.find("locations")
+            if locs_elem is not None:
+                for loc in locs_elem.findall("location"):
+                    if loc.text:
+                        locations.append(loc.text.strip())
+
+            # Sectors
+            sectors = []
+            sects_elem = alert_elem.find("sectors")
+            if sects_elem is not None:
+                for sec in sects_elem.findall("sector"):
+                    if sec.text:
+                        sectors.append(sec.text.strip())
+
+            # Map type to level
+            level = "elevated"
+            if "imminent" in alert_type.lower():
+                level = "imminent"
+
+            title = f"DHS NTAS: {alert_type}"
+
+            advisories.append({
+                "source": "ntas",
+                "title": title,
+                "level": level,
+                "summary": summary,
+                "details": details,
+                "locations": locations,
+                "sectors": sectors,
+                "start": start_dt.isoformat() if start_dt else start_str,
+                "end": end_dt.isoformat() if end_dt else end_str,
+                "link": link,
+            })
+
+        return advisories
+
+    async def _fetch_travel_advisories(
+        self,
+        countries: Optional[List[str]] = None,
+        region: Optional[str] = None,
+        threat_level: Optional[List[str]] = None,
+    ) -> List[Dict[str, Any]]:
+        """Fetch State Dept travel advisories via RSS feed.
+
+        Endpoint: https://travel.state.gov/_res/rss/TAsTWs.xml
+        Returns RSS 2.0 with <item> elements containing travel advisories.
+        """
+        url = "https://travel.state.gov/_res/rss/TAsTWs.xml"
+        advisories: List[Dict[str, Any]] = []
+
+        response = await self.http_client.get(url, headers={
+            "Accept": "application/rss+xml, application/xml, text/xml",
+            "User-Agent": "WEMS-MCP-Server/1.5.0"
+        })
+        response.raise_for_status()
+        xml_text = response.text
+
+        try:
+            root = ET.fromstring(xml_text)
+        except ET.ParseError:
+            return advisories
+
+        channel = root.find("channel")
+        if channel is None:
+            return advisories
+
+        for item in channel.findall("item"):
+            title_elem = item.find("title")
+            title = title_elem.text.strip() if title_elem is not None and title_elem.text else ""
+            link_elem = item.find("link")
+            link = link_elem.text.strip() if link_elem is not None and link_elem.text else ""
+            desc_elem = item.find("description")
+            desc = desc_elem.text.strip() if desc_elem is not None and desc_elem.text else ""
+            # Strip HTML from description
+            desc = re.sub(r"<[^>]+>", "", desc).strip()
+            pub_elem = item.find("pubDate")
+            pub_date = pub_elem.text.strip() if pub_elem is not None and pub_elem.text else ""
+
+            # Extract level from category elements
+            level_num = 0
+            level_text = ""
+            country_tag = ""
+            for cat in item.findall("category"):
+                domain = cat.get("domain", "")
+                cat_text = cat.text.strip() if cat.text else ""
+                if domain == "Threat-Level":
+                    level_text = cat_text
+                    # Extract number: "Level 1: Exercise Normal Precautions"
+                    match = re.search(r"Level\s+(\d)", cat_text)
+                    if match:
+                        level_num = int(match.group(1))
+                elif domain == "Country-Tag":
+                    country_tag = cat_text
+
+            # Filter by threat level
+            if threat_level:
+                if str(level_num) not in threat_level:
+                    continue
+
+            # By default (no threat_level filter), only show level 2+ for
+            # travel advisories to avoid flooding with "Exercise Normal Precautions"
+            if not threat_level and level_num < 2:
+                continue
+
+            # Filter by countries
+            if countries:
+                # Check if any requested country appears in the title
+                title_upper = title.upper()
+                matched = False
+                for c in countries:
+                    if c.upper() in title_upper or c.upper() == country_tag.upper():
+                        matched = True
+                        break
+                if not matched:
+                    continue
+
+            # Filter by region (basic keyword match in title/description)
+            if region:
+                region_lower = region.lower()
+                if region_lower not in title.lower() and region_lower not in desc.lower():
+                    continue
+
+            advisories.append({
+                "source": "travel",
+                "title": title,
+                "level": level_text,
+                "level_num": level_num,
+                "summary": desc,
+                "country_tag": country_tag,
+                "published": pub_date,
+                "link": link,
+            })
+
+        # Sort by level (highest first)
+        advisories.sort(key=lambda a: a.get("level_num", 0), reverse=True)
+        return advisories
+
+    async def _fetch_cyber_advisories(self) -> List[Dict[str, Any]]:
+        """Fetch CISA cybersecurity advisories via RSS/JSON feed.
+
+        Endpoint: https://www.cisa.gov/cybersecurity-advisories/all.xml
+        Falls back gracefully if the feed is unavailable.
+        """
+        url = "https://www.cisa.gov/cybersecurity-advisories/all.xml"
+        advisories: List[Dict[str, Any]] = []
+
+        try:
+            response = await self.http_client.get(url, headers={
+                "Accept": "application/rss+xml, application/xml, text/xml",
+                "User-Agent": "WEMS-MCP-Server/1.5.0"
+            })
+            response.raise_for_status()
+            xml_text = response.text
+
+            try:
+                root = ET.fromstring(xml_text)
+            except ET.ParseError:
+                return advisories
+
+            channel = root.find("channel")
+            if channel is None:
+                return advisories
+
+            for item in channel.findall("item"):
+                title_elem = item.find("title")
+                title = title_elem.text.strip() if title_elem is not None and title_elem.text else ""
+                link_elem = item.find("link")
+                link = link_elem.text.strip() if link_elem is not None and link_elem.text else ""
+                desc_elem = item.find("description")
+                desc = desc_elem.text.strip() if desc_elem is not None and desc_elem.text else ""
+                desc = re.sub(r"<[^>]+>", "", desc).strip()
+                pub_elem = item.find("pubDate")
+                pub_date = pub_elem.text.strip() if pub_elem is not None and pub_elem.text else ""
+
+                advisories.append({
+                    "source": "cyber",
+                    "title": f"CISA: {title}",
+                    "level": "advisory",
+                    "summary": desc,
+                    "published": pub_date,
+                    "link": link,
+                })
+
+            # Only return recent advisories (last 7 days worth)
+            return advisories[:10]
+
+        except (httpx.HTTPError, Exception):
+            # Cyber feed is best-effort; don't fail the whole request
+            return advisories
+
+    @staticmethod
+    def _parse_ntas_date(date_str: str) -> Optional[datetime]:
+        """Parse NTAS date format: YYYY/MM/DD HH:MM (GMT)."""
+        if not date_str:
+            return None
+        try:
+            return datetime.strptime(date_str.strip(), "%Y/%m/%d %H:%M").replace(tzinfo=timezone.utc)
+        except ValueError:
+            return None
+
+    def _format_advisory(self, adv: Dict[str, Any]) -> str:
+        """Format a single advisory for display."""
+        source = adv.get("source", "")
+
+        if source == "ntas":
+            level = adv.get("level", "elevated")
+            icon = self._NTAS_ICONS.get(level, "🟡")
+            title = adv.get("title", "DHS Advisory")
+            summary = adv.get("summary", "")
+            locations = adv.get("locations", [])
+            sectors = adv.get("sectors", [])
+            start = adv.get("start", "")
+            end = adv.get("end", "")
+            link = adv.get("link", "")
+
+            result = f"{icon} **{title}**\n"
+            result += f"   ⚠️ Level: {level.title()}\n"
+            if summary:
+                # Truncate long summaries
+                if len(summary) > 200:
+                    summary = summary[:200] + "..."
+                result += f"   📋 {summary}\n"
+            if locations:
+                result += f"   📍 Locations: {', '.join(locations)}\n"
+            if sectors:
+                result += f"   🏭 Sectors: {', '.join(sectors)}\n"
+            if start:
+                result += f"   ⏰ Effective: {start}\n"
+            if end:
+                result += f"   ⏳ Expires: {end}\n"
+            if link:
+                result += f"   🔗 {link}\n"
+            return result
+
+        elif source == "travel":
+            level_num = adv.get("level_num", 0)
+            icon, level_desc = self._TRAVEL_LEVELS.get(str(level_num), ("⚪", "Unknown"))
+            title = adv.get("title", "Travel Advisory")
+            summary = adv.get("summary", "")
+            published = adv.get("published", "")
+            link = adv.get("link", "")
+
+            result = f"{icon} **{title}**\n"
+            result += f"   ⚠️ {level_desc}\n"
+            if summary:
+                if len(summary) > 200:
+                    summary = summary[:200] + "..."
+                result += f"   📋 {summary}\n"
+            if published:
+                result += f"   📅 Published: {published}\n"
+            if link:
+                result += f"   🔗 {link}\n"
+            return result
+
+        elif source == "cyber":
+            title = adv.get("title", "Cyber Advisory")
+            summary = adv.get("summary", "")
+            published = adv.get("published", "")
+            link = adv.get("link", "")
+
+            result = f"🔵 **{title}**\n"
+            if summary:
+                if len(summary) > 200:
+                    summary = summary[:200] + "..."
+                result += f"   📋 {summary}\n"
+            if published:
+                result += f"   📅 Published: {published}\n"
+            if link:
+                result += f"   🔗 {link}\n"
+            return result
+
+        return f"⚪ {adv.get('title', 'Unknown Advisory')}\n"
+
+    async def _check_threat_advisory_alert(self, title: str, level: str, summary: str, source: str):
+        """Trigger webhook alert for threat advisories."""
+        alert_config = self.config.get("alerts", {}).get("threat_advisories", {})
+        webhook_url = alert_config.get("webhook")
+        enabled = alert_config.get("enabled", True)
+
+        if enabled and webhook_url:
+            payload = {
+                "event_type": "threat_advisory",
+                "title": title,
+                "threat_level": level,
+                "summary": summary[:500] if summary else "",
+                "source": source,
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "alert_level": "critical" if "imminent" in level.lower() or "4" in level else "warning"
             }
             try:
                 await self.http_client.post(webhook_url, json=payload)
