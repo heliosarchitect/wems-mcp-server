@@ -15,7 +15,7 @@ A powerful Model Context Protocol (MCP) server that connects AI assistants to au
 
 ## ⚡ Key Features
 
-- 🌋 **7+ Authoritative Data Sources**: USGS, NOAA, Smithsonian GVP, NHC, NIFC, OpenAQ, DHS, State Dept, CISA
+- 🌋 **9+ Authoritative Data Sources**: USGS, NOAA, Smithsonian GVP, NHC, NIFC, OpenAQ, DHS, State Dept, CISA, US Drought Monitor
 - 🎯 **Real-time Monitoring**: Live data feeds with customizable thresholds
 - 🔔 **Smart Alerts**: Webhook notifications for critical events
 - 🗺️ **Geographic Filtering**: Target specific regions or global coverage
@@ -30,10 +30,12 @@ A powerful Model Context Protocol (MCP) server that connects AI assistants to au
 | 🌊 **Tsunamis** | NOAA PTWC + CTWC | Global ocean basins |
 | 🌋 **Volcanoes** | Smithsonian GVP + USGS | Global volcanic activity |
 | ☀️ **Solar Events** | NOAA SWPC | Solar flares, CMEs, geomagnetic storms |
+| 🌞 **Space Weather Alerts** | NOAA SWPC | Active space weather alerts & warnings |
 | 🌀 **Hurricanes** | NHC + NWS | Atlantic & Pacific tropical cyclones |
 | 🔥 **Wildfires** | NWS + NIFC | Fire weather alerts & active perimeters |
 | ⛈️ **Severe Weather** | NWS Alerts | Tornadoes, thunderstorms, floods, winter storms |
 | 💨 **Air Quality** | OpenAQ | Global AQI, PM2.5, PM10, O₃, NO₂, SO₂, CO |
+| 🌵 **Drought Conditions** | US Drought Monitor | US state drought levels (D0-D4) + trends |
 | 🛡️ **Threat Advisories** | DHS NTAS + State Dept + CISA | Terrorism, travel risk, cyber threats |
 
 ## 🚀 Quick Start
@@ -97,6 +99,8 @@ print(asyncio.run(check_earthquakes(min_magnitude=6.0)))
 | `check_floods` | Flood warnings & USGS river gauge data | 1.3.0 |
 | `check_air_quality` | AQI monitoring with pollutant data | 1.4.0 |
 | `check_threat_advisories` | Terrorism, travel risk & cyber threat monitoring | 1.5.0 |
+| `check_space_weather_alerts` | Active space weather alerts & warnings from NOAA SWPC | 1.7.3 |
+| `check_drought_status` | US state drought conditions with D0-D4 levels (Premium) | 1.7.3 |
 | `configure_alerts` | Update alert thresholds and webhooks | 1.0.0 |
 
 ## Configuration

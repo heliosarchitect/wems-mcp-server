@@ -64,6 +64,9 @@ TIER_LIMITS = {
         "threat_region_filter": False,        # No region filtering
         "threat_include_expired": False,      # Current advisories only
         "threat_include_historical": False,   # No historical data
+        "space_weather_max_results": 5,      # Limited space weather alerts
+        "space_weather_hours_back": 24,      # Last 24 hours only
+        "drought_status": False,              # No drought monitoring (premium only)
         "configure_alerts": False,             # No custom alert config
         "polling_note": "Updates every 15 minutes",
     },
@@ -104,6 +107,10 @@ TIER_LIMITS = {
         "threat_region_filter": True,        # Region filtering
         "threat_include_expired": True,      # Include expired advisories
         "threat_include_historical": True,   # Historical data
+        "space_weather_max_results": 25,     # Full space weather alerts
+        "space_weather_hours_back": 168,     # Up to 7 days
+        "drought_status": True,               # Full drought monitoring
+        "drought_weeks_back": 52,            # Up to 1 year historical
         "configure_alerts": True,              # Full alert customization
         "polling_note": "Real-time updates",
     }
@@ -475,7 +482,54 @@ class WemsServer:
                         }
                     }
                 ),
+                Tool(
+                    name="check_space_weather_alerts",
+                    description="Monitor active space weather alerts from NOAA SWPC for geomagnetic storms, solar radiation, and radio blackouts",
+                    inputSchema={
+                        "type": "object",
+                        "properties": {
+                            "alert_types": {
+                                "type": "array",
+                                "items": {"type": "string"},
+                                "description": "Filter by alert types: geomagnetic, radiation, radio, all (default: all)"
+                            },
+                            "hours_back": {
+                                "type": "number",
+                                "description": "Hours to look back for alerts (default: 24, max: 168)",
+                                "default": 24
+                            }
+                        }
+                    }
+                ),
             ]
+            
+            # Premium-tier tools
+            if self.tier == TIER_PREMIUM:
+                tools.append(Tool(
+                    name="check_drought_status",
+                    description="Check current US drought conditions by state with detailed D0-D4 classification (premium)",
+                    inputSchema={
+                        "type": "object",
+                        "properties": {
+                            "state": {
+                                "type": "string",
+                                "description": "US state abbreviation (e.g., CA, TX) or FIPS code",
+                                "required": True
+                            },
+                            "weeks_back": {
+                                "type": "number",
+                                "description": "Number of weeks of historical data to include (default: 4)",
+                                "default": 4
+                            },
+                            "include_trend": {
+                                "type": "boolean",
+                                "description": "Include trend analysis over the time period",
+                                "default": True
+                            }
+                        },
+                        "required": ["state"]
+                    }
+                ))
             
             # configure_alerts only available on premium
             if self.tier == TIER_PREMIUM:
@@ -522,6 +576,12 @@ class WemsServer:
                 return await self._check_air_quality(**arguments)
             elif name == "check_threat_advisories":
                 return await self._check_threat_advisories(**arguments)
+            elif name == "check_space_weather_alerts":
+                return await self._check_space_weather_alerts(**arguments)
+            elif name == "check_drought_status":
+                if self.tier != TIER_PREMIUM:
+                    return [TextContent(type="text", text=f"🔒 US Drought Monitor requires WEMS Premium.{_upgrade_message('Drought status monitoring')}")] 
+                return await self._check_drought_status(**arguments)
             elif name == "configure_alerts":
                 if self.tier != TIER_PREMIUM:
                     return [TextContent(type="text", text=f"🔒 Custom alert configuration requires WEMS Premium.{_upgrade_message('Custom alert thresholds')}")]
@@ -2837,6 +2897,324 @@ class WemsServer:
             except httpx.HTTPError:
                 pass
     
+    # ─── Space Weather Alerts ────────────────────────────────────────────
+
+    async def _check_space_weather_alerts(
+        self,
+        alert_types: Optional[List[str]] = None,
+        hours_back: int = 24
+    ) -> List[TextContent]:
+        """Check active space weather alerts from NOAA SWPC."""
+        
+        limits = self.limits
+        
+        # Enforce tier limits
+        max_results = limits["space_weather_max_results"]
+        max_hours_back = limits["space_weather_hours_back"]
+        
+        if hours_back > max_hours_back:
+            hours_back = max_hours_back
+            if self.tier == TIER_FREE:
+                tier_note = f"\n📋 Free tier: showing last {max_hours_back}h (premium unlocks up to 7 days)\n"
+            else:
+                tier_note = ""
+        else:
+            tier_note = ""
+
+        try:
+            # Get alerts from NOAA SWPC
+            url = "https://services.swpc.noaa.gov/products/alerts.json"
+            response = await self.http_client.get(url)
+            response.raise_for_status()
+            alerts_data = response.json()
+
+            if not alerts_data:
+                result_text = ["🌞 **Space Weather Alerts**: No active alerts from NOAA SWPC"]
+                if tier_note:
+                    result_text.append(tier_note)
+                return [TextContent(type="text", text="".join(result_text))]
+
+            result_text = ["🌞 **Active Space Weather Alerts**\n"]
+            if tier_note:
+                result_text.append(tier_note)
+
+            # Filter by time
+            from datetime import datetime, timezone, timedelta
+            cutoff_time = datetime.now(timezone.utc) - timedelta(hours=hours_back)
+            
+            # Filter and categorize alerts
+            recent_alerts = []
+            for alert in alerts_data:
+                # Handle different datetime formats from API
+                issue_datetime_str = alert['issue_datetime']
+                try:
+                    # Try parsing with timezone info first
+                    if 'Z' in issue_datetime_str:
+                        issue_time = datetime.fromisoformat(issue_datetime_str.replace('Z', '+00:00'))
+                    elif '+' in issue_datetime_str or issue_datetime_str.endswith('UTC'):
+                        issue_time = datetime.fromisoformat(issue_datetime_str.replace('UTC', '+00:00'))
+                    else:
+                        # Assume UTC if no timezone info
+                        issue_time = datetime.fromisoformat(issue_datetime_str).replace(tzinfo=timezone.utc)
+                except ValueError:
+                    # Fallback: assume it's a basic format and add UTC timezone
+                    try:
+                        issue_time = datetime.strptime(issue_datetime_str[:19], "%Y-%m-%d %H:%M:%S").replace(tzinfo=timezone.utc)
+                    except ValueError:
+                        continue  # Skip malformed timestamps
+                
+                if issue_time >= cutoff_time:
+                    recent_alerts.append((issue_time, alert))
+
+            # Sort by time (newest first)
+            recent_alerts.sort(key=lambda x: x[0], reverse=True)
+            total_alerts = len(recent_alerts)
+            recent_alerts = recent_alerts[:max_results]
+
+            if not recent_alerts:
+                result_text.append(f"No alerts in the last {hours_back} hours\n")
+            else:
+                shown = 0
+                for issue_time, alert in recent_alerts:
+
+                    # Determine alert type and icon
+                    product_id = alert.get('product_id', '')
+                    message = alert.get('message', '')
+                    
+                    if 'geomagnetic' in message.lower() or 'K-index' in message:
+                        icon = "🧲"
+                        alert_type = "Geomagnetic"
+                    elif 'proton' in message.lower() or 'radiation' in message.lower():
+                        icon = "☢️"
+                        alert_type = "Radiation"
+                    elif 'radio' in message.lower() or 'blackout' in message.lower():
+                        icon = "📡"
+                        alert_type = "Radio"
+                    elif 'solar flare' in message.lower() or 'x-ray' in message.lower():
+                        icon = "☀️"
+                        alert_type = "Solar Flare"
+                    else:
+                        icon = "⚠️"
+                        alert_type = "Space Weather"
+
+                    # Filter by alert types if specified
+                    if alert_types and alert_types != ["all"]:
+                        type_match = False
+                        for filter_type in alert_types:
+                            if filter_type.lower() in alert_type.lower():
+                                type_match = True
+                                break
+                        if not type_match:
+                            continue
+
+                    # Extract key information from message
+                    lines = message.split('\n')
+                    title = lines[0] if lines else "Space Weather Alert"
+                    
+                    # Look for scale information
+                    scale_info = ""
+                    for line in lines:
+                        if 'NOAA Scale:' in line or 'Scale:' in line:
+                            scale_info = f" ({line.split('Scale:')[-1].strip()})"
+                            break
+
+                    time_str = issue_time.strftime("%Y-%m-%d %H:%M UTC")
+                    
+                    result_text.append(
+                        f"{icon} **{alert_type}** Alert{scale_info}\n"
+                        f"   {title}\n"
+                        f"   {time_str} | ID: {product_id}\n\n"
+                    )
+                    shown += 1
+
+                # Show upgrade message if there were more alerts than we displayed
+                if total_alerts > max_results and self.tier == TIER_FREE:
+                    remaining = total_alerts - max_results
+                    result_text.append(f"\n... and {remaining} more alerts.{_upgrade_message('Full space weather alert history')}")
+
+            if self.tier == TIER_FREE:
+                result_text.append(f"\n📋 {limits['polling_note']}")
+
+            return [TextContent(type="text", text="".join(result_text))]
+
+        except httpx.HTTPError as e:
+            return [TextContent(type="text", text=f"❌ Error fetching space weather alerts: {e}")]
+        except Exception as e:
+            return [TextContent(type="text", text=f"❌ Unexpected error in space weather alerts: {e}")]
+
+
+    # ─── Drought Monitoring ──────────────────────────────────────────────
+
+    async def _check_drought_status(
+        self,
+        state: str,
+        weeks_back: int = 4,
+        include_trend: bool = True
+    ) -> List[TextContent]:
+        """Check current US drought status for a state (Premium only)."""
+        
+        limits = self.limits
+        
+        if not limits.get("drought_status", False):
+            return [TextContent(
+                type="text",
+                text=f"🔒 Drought monitoring requires WEMS Premium.{_upgrade_message('US Drought Monitor access')}"
+            )]
+
+        # Enforce tier limits
+        max_weeks_back = limits.get("drought_weeks_back", 4)
+        if weeks_back > max_weeks_back:
+            weeks_back = max_weeks_back
+
+        try:
+            # Convert state abbreviation to FIPS code if needed
+            state_upper = state.upper()
+            
+            # Map state abbreviations to FIPS codes
+            state_fips_map = {
+                'AL': '01', 'AK': '02', 'AZ': '04', 'AR': '05', 'CA': '06', 'CO': '08',
+                'CT': '09', 'DE': '10', 'FL': '12', 'GA': '13', 'HI': '15', 'ID': '16',
+                'IL': '17', 'IN': '18', 'IA': '19', 'KS': '20', 'KY': '21', 'LA': '22',
+                'ME': '23', 'MD': '24', 'MA': '25', 'MI': '26', 'MN': '27', 'MS': '28',
+                'MO': '29', 'MT': '30', 'NE': '31', 'NV': '32', 'NH': '33', 'NJ': '34',
+                'NM': '35', 'NY': '36', 'NC': '37', 'ND': '38', 'OH': '39', 'OK': '40',
+                'OR': '41', 'PA': '42', 'RI': '44', 'SC': '45', 'SD': '46', 'TN': '47',
+                'TX': '48', 'UT': '49', 'VT': '50', 'VA': '51', 'WA': '53', 'WV': '54',
+                'WI': '55', 'WY': '56'
+            }
+            
+            # Use FIPS code or try as-is
+            if state_upper in state_fips_map:
+                aoi = state_fips_map[state_upper]
+                state_name = state_upper
+            elif state.isdigit() and len(state) == 2:
+                aoi = state
+                # Reverse lookup for display
+                state_name = next((k for k, v in state_fips_map.items() if v == state), state)
+            else:
+                return [TextContent(
+                    type="text",
+                    text=f"❌ Invalid state: {state}. Please use 2-letter abbreviation (e.g., CA, TX) or FIPS code."
+                )]
+
+            # Calculate date range
+            from datetime import datetime, timezone, timedelta
+            end_date = datetime.now(timezone.utc)
+            start_date = end_date - timedelta(weeks=weeks_back)
+            
+            # Format dates for API
+            start_date_str = start_date.strftime("%-m/%-d/%Y")
+            end_date_str = end_date.strftime("%-m/%-d/%Y")
+            
+            # Call US Drought Monitor API
+            url = (
+                f"https://usdmdataservices.unl.edu/api/StateStatistics/"
+                f"GetDroughtSeverityStatisticsByAreaPercent"
+                f"?aoi={aoi}&startdate={start_date_str}&enddate={end_date_str}&statisticsType=1"
+            )
+            
+            response = await self.http_client.get(
+                url,
+                headers={"Accept": "application/json"}
+            )
+            response.raise_for_status()
+            drought_data = response.json()
+
+            if not drought_data:
+                return [TextContent(
+                    type="text",
+                    text=f"🌵 No drought data available for {state_name}"
+                )]
+
+            # Sort by date (newest first)
+            drought_data.sort(key=lambda x: x['mapDate'], reverse=True)
+            
+            # Get current status (most recent)
+            current = drought_data[0]
+            map_date = datetime.fromisoformat(current['mapDate'].replace('Z', ''))
+            date_str = map_date.strftime("%Y-%m-%d")
+
+            result_text = [f"🌵 **Drought Status: {state_name}**\n"]
+            result_text.append(f"Current as of: {date_str}\n\n")
+
+            # Current drought levels
+            none_pct = current.get('none', 0)
+            d0_pct = current.get('d0', 0)  # Abnormally Dry
+            d1_pct = current.get('d1', 0)  # Moderate Drought
+            d2_pct = current.get('d2', 0)  # Severe Drought
+            d3_pct = current.get('d3', 0)  # Extreme Drought
+            d4_pct = current.get('d4', 0)  # Exceptional Drought
+
+            # Overall status
+            if d4_pct > 0:
+                status_icon = "🔴"
+                status = "Exceptional Drought"
+            elif d3_pct > 0:
+                status_icon = "🟠"
+                status = "Extreme Drought"
+            elif d2_pct > 0:
+                status_icon = "🟡"
+                status = "Severe Drought"
+            elif d1_pct > 0:
+                status_icon = "🟤"
+                status = "Moderate Drought"
+            elif d0_pct > 0:
+                status_icon = "🟨"
+                status = "Abnormally Dry"
+            else:
+                status_icon = "🟢"
+                status = "No Drought"
+
+            result_text.append(f"{status_icon} **Overall Status: {status}**\n\n")
+            
+            # Breakdown by intensity
+            result_text.append("**Drought Intensity Breakdown:**\n")
+            if none_pct > 0:
+                result_text.append(f"🟢 No Drought: {none_pct:.1f}%\n")
+            if d0_pct > 0:
+                result_text.append(f"🟨 D0 (Abnormally Dry): {d0_pct:.1f}%\n")
+            if d1_pct > 0:
+                result_text.append(f"🟤 D1 (Moderate): {d1_pct:.1f}%\n")
+            if d2_pct > 0:
+                result_text.append(f"🟡 D2 (Severe): {d2_pct:.1f}%\n")
+            if d3_pct > 0:
+                result_text.append(f"🟠 D3 (Extreme): {d3_pct:.1f}%\n")
+            if d4_pct > 0:
+                result_text.append(f"🔴 D4 (Exceptional): {d4_pct:.1f}%\n")
+
+            # Trend analysis if requested and multiple data points
+            if include_trend and len(drought_data) > 1:
+                result_text.append(f"\n**{weeks_back}-Week Trend:**\n")
+                
+                oldest = drought_data[-1]
+                old_none = oldest.get('none', 0)
+                old_total_drought = 100 - old_none
+                current_total_drought = 100 - none_pct
+                
+                drought_change = current_total_drought - old_total_drought
+                
+                if abs(drought_change) < 1:
+                    trend_icon = "➡️"
+                    trend_text = "Stable"
+                elif drought_change > 0:
+                    trend_icon = "📈"
+                    trend_text = f"Worsening (+{drought_change:.1f}% in drought)"
+                else:
+                    trend_icon = "📉"
+                    trend_text = f"Improving ({drought_change:.1f}% in drought)"
+                
+                result_text.append(f"{trend_icon} {trend_text}\n")
+
+            result_text.append(f"\n📋 Data source: US Drought Monitor (updated weekly)")
+
+            return [TextContent(type="text", text="".join(result_text))]
+
+        except httpx.HTTPError as e:
+            return [TextContent(type="text", text=f"❌ Error fetching drought data: {e}")]
+        except Exception as e:
+            return [TextContent(type="text", text=f"❌ Unexpected error in drought monitoring: {e}")]
+
+
     # ─── Server Lifecycle ────────────────────────────────────────────────
 
     async def run(self):
