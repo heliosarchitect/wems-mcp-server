@@ -1,36 +1,20 @@
 {
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "io.github.heliosarchitect/wems",
-  "description": "Comprehensive natural hazard monitoring MCP server with 4 authoritative data sources: earthquakes (USGS), tsunamis (NOAA), volcanoes (Smithsonian GVP), and solar events (NOAA Space Weather). Features configurable webhooks, geographic filtering, and real-time alerting.",
-  "version": "1.1.1",
+  "description": "Real-time natural hazard monitoring: earthquakes, tsunamis, volcanoes, solar weather, air quality",
+  "repository": {
+    "url": "https://github.com/heliosarchitect/wems-mcp-server",
+    "source": "github"
+  },
+  "version": "1.5.3",
   "packages": [
     {
-      "registry_type": "pypi",
-      "identifier": "wems-mcp-server", 
-      "version": "1.1.1"
+      "registryType": "pypi",
+      "identifier": "wems-mcp-server",
+      "version": "1.5.3",
+      "transport": {
+        "type": "stdio"
+      }
     }
-  ],
-  "tools": [
-    {
-      "name": "check_earthquakes",
-      "description": "Query recent earthquake activity from USGS with magnitude and geographic filtering"
-    },
-    {
-      "name": "check_tsunamis", 
-      "description": "Monitor tsunami warnings from NOAA Pacific and Central Warning Centers"
-    },
-    {
-      "name": "check_volcanoes",
-      "description": "Track volcanic activity alerts from Smithsonian Global Volcanism Program"
-    },
-    {
-      "name": "check_solar",
-      "description": "Monitor space weather events including solar flares, CMEs, and geomagnetic storms"
-    },
-    {
-      "name": "configure_alerts",
-      "description": "Update alert thresholds and webhook configurations for proactive monitoring"
-    }
-  ],
-  "resources": [],
-  "prompts": []
+  ]
 }

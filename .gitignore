@@ -96,3 +96,5 @@ PUBLISH-STATUS.md
 REGISTRY-PUBLISHING-STATUS.md
 RELEASE-NOTES-v1.0.0.md
 
+.mcpregistry_*
+mcp-publisher

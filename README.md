@@ -5,6 +5,8 @@
 [![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
 [![MCP Compatible](https://img.shields.io/badge/MCP-Compatible-green.svg)](https://modelcontextprotocol.io/)
 
+<!-- mcp-name: io.github.heliosarchitect/wems -->
+
 **🚨 Real-time Natural Hazard Monitoring for AI Agents**
 
 A powerful Model Context Protocol (MCP) server that connects AI assistants to authoritative natural hazard data sources. Monitor earthquakes, tsunamis, volcanoes, and solar events with configurable alerts and webhooks.
