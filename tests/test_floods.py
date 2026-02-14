@@ -139,8 +139,8 @@ class TestCheckFloods:
     @pytest.mark.asyncio
     async def test_check_floods_flood_watches(self, wems_server_premium, mock_flood_watch_response):
         """Test floods checking with flood watches."""
-        with patch.object(wems_server_premium.http_client, 'get', new_callable=AsyncMock) as mock_get:
-            mock_get.return_value = MockResponse(mock_flood_watch_response)
+        with patch.object(wems_server_premium, '_get_nws_flood_alerts', new_callable=AsyncMock) as mock_get_alerts:
+            mock_get_alerts.return_value = mock_flood_watch_response["features"]
             
             result = await wems_server_premium._check_floods()
             
