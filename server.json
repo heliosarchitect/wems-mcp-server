@@ -1,12 +1,12 @@
 {
-  "name": "io.github.heliosarchitect/wems-mcp-server",
+  "name": "io.github.heliosarchitect/wems",
   "description": "Comprehensive natural hazard monitoring MCP server with 4 authoritative data sources: earthquakes (USGS), tsunamis (NOAA), volcanoes (Smithsonian GVP), and solar events (NOAA Space Weather). Features configurable webhooks, geographic filtering, and real-time alerting.",
-  "version": "1.0.0",
+  "version": "1.1.1",
   "packages": [
     {
       "registry_type": "pypi",
       "identifier": "wems-mcp-server", 
-      "version": "1.0.0"
+      "version": "1.1.1"
     }
   ],
   "tools": [

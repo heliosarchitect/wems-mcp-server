@@ -4,8 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "wems-mcp-server"
-version = "1.1.1"
-mcpName = "io.github.heliosarchitect/wems"
+version = "1.4.0"
 authors = [
     {name = "Helios", email = "heliosarchitectlbf@gmail.com"}
 ]
@@ -89,3 +88,6 @@ target-version = ['py38']
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 testpaths = ["tests"]
+
+[tool.mcp]
+mcpName = "io.github.heliosarchitect/wems"

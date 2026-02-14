@@ -30,6 +30,8 @@ A powerful Model Context Protocol (MCP) server that connects AI assistants to au
 | ☀️ **Solar Events** | NOAA SWPC | Solar flares, CMEs, geomagnetic storms |
 | 🌀 **Hurricanes** | NHC + NWS | Atlantic & Pacific tropical cyclones |
 | 🔥 **Wildfires** | NWS + NIFC | Fire weather alerts & active perimeters |
+| ⛈️ **Severe Weather** | NWS Alerts | Tornadoes, thunderstorms, floods, winter storms |
+| 💨 **Air Quality** | OpenAQ | Global AQI, PM2.5, PM10, O₃, NO₂, SO₂, CO |
 
 ## 🚀 Quick Start
 
@@ -88,6 +90,9 @@ print(asyncio.run(check_earthquakes(min_magnitude=6.0)))
 | `check_tsunamis` | Monitor tsunami warnings | 1.0.0 |
 | `check_hurricanes` | Track tropical cyclones & forecast tracks | 1.1.0 |
 | `check_wildfires` | Fire weather alerts & active perimeters | 1.1.0 |
+| `check_severe_weather` | Monitor tornadoes, thunderstorms, flash floods | 1.2.0 |
+| `check_floods` | Flood warnings & USGS river gauge data | 1.3.0 |
+| `check_air_quality` | AQI monitoring with pollutant data | 1.4.0 |
 | `configure_alerts` | Update alert thresholds and webhooks | 1.0.0 |
 
 ## Configuration
@@ -190,9 +195,9 @@ curl -X POST https://your-monitoring.com/api/events \
 |---------|---------|-------------|--------|
 | ~~1.0.0~~ | 🌊 Earthquakes, ☀️ Solar, 🌋 Volcanoes, 🌊 Tsunamis | USGS, NOAA, Smithsonian | ✅ Shipped |
 | ~~1.1.0~~ | 🌀 Hurricanes, 🔥 Wildfires | NHC, NWS, NIFC | ✅ Shipped |
-| 1.2.0 | ⛈️ Severe Weather (tornadoes, thunderstorms, flash floods) | NWS Alerts API | 🔜 Next |
-| 1.3.0 | 🌊 Floods (river gauges, flood warnings) | USGS Water Services + NOAA | 📋 Planned |
-| 1.4.0 | 💨 Air Quality (AQI, smoke, pollution) | EPA AirNow | 📋 Planned |
+| ~~1.2.0~~ | ⛈️ Severe Weather (tornadoes, thunderstorms, flash floods) | NWS Alerts API | ✅ Shipped |
+| ~~1.3.0~~ | 🌊 Floods (river gauges, flood warnings) | USGS Water Services + NOAA | ✅ Shipped |
+| ~~1.4.0~~ | 💨 Air Quality (AQI, smoke, pollution) | OpenAQ | ✅ Shipped |
 | 1.5.0 | 🛡️ Threat Advisories (terrorism, travel risk) | DHS NTAS, State Dept | 📋 Planned |
 
 All data sources are **free, public, and require no API keys**. Zero-config by design.
