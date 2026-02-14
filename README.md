@@ -25,9 +25,11 @@ A powerful Model Context Protocol (MCP) server that connects AI assistants to au
 | Hazard Type | Data Source | Coverage |
 |-------------|-------------|----------|
 | 🌊 **Earthquakes** | USGS | Global, magnitude filtering |
-| 🌊 **Tsunamis** | NOAA Pacific + Central Warning Centers | Global ocean basins |
+| 🌊 **Tsunamis** | NOAA PTWC + CTWC | Global ocean basins |
 | 🌋 **Volcanoes** | Smithsonian GVP + USGS | Global volcanic activity |
-| ☀️ **Solar Events** | NOAA Space Weather | Solar flares, CMEs, geomagnetic storms |
+| ☀️ **Solar Events** | NOAA SWPC | Solar flares, CMEs, geomagnetic storms |
+| 🌀 **Hurricanes** | NHC + NWS | Atlantic & Pacific tropical cyclones |
+| 🔥 **Wildfires** | NWS + NIFC | Fire weather alerts & active perimeters |
 
 ## 🚀 Quick Start
 
@@ -78,11 +80,15 @@ print(asyncio.run(check_earthquakes(min_magnitude=6.0)))
 
 ## MCP Tools
 
-- `check_earthquakes` - Query recent earthquake activity ✅
-- `check_solar` - Monitor space weather events (K-index, solar flares, CMEs) ✅
-- `check_volcanoes` - Track volcanic activity alerts ✅ NEW!
-- `check_tsunamis` - Monitor tsunami warnings ✅ NEW!
-- `configure_alerts` - Update alert thresholds and webhooks ✅
+| Tool | Description | Version |
+|------|-------------|---------|
+| `check_earthquakes` | Query recent earthquake activity | 1.0.0 |
+| `check_solar` | Monitor space weather (K-index, flares, CMEs) | 1.0.0 |
+| `check_volcanoes` | Track volcanic activity alerts | 1.0.0 |
+| `check_tsunamis` | Monitor tsunami warnings | 1.0.0 |
+| `check_hurricanes` | Track tropical cyclones & forecast tracks | 1.1.0 |
+| `check_wildfires` | Fire weather alerts & active perimeters | 1.1.0 |
+| `configure_alerts` | Update alert thresholds and webhooks | 1.0.0 |
 
 ## Configuration
 
@@ -177,6 +183,19 @@ curl -X POST https://your-monitoring.com/api/events \
   -H "Content-Type: application/json" \
   -d "$(python -c 'import wems; print(wems.get_recent_earthquakes())')"
 ```
+
+## 🗺️ Roadmap
+
+| Version | Feature | Data Source | Status |
+|---------|---------|-------------|--------|
+| ~~1.0.0~~ | 🌊 Earthquakes, ☀️ Solar, 🌋 Volcanoes, 🌊 Tsunamis | USGS, NOAA, Smithsonian | ✅ Shipped |
+| ~~1.1.0~~ | 🌀 Hurricanes, 🔥 Wildfires | NHC, NWS, NIFC | ✅ Shipped |
+| 1.2.0 | ⛈️ Severe Weather (tornadoes, thunderstorms, flash floods) | NWS Alerts API | 🔜 Next |
+| 1.3.0 | 🌊 Floods (river gauges, flood warnings) | USGS Water Services + NOAA | 📋 Planned |
+| 1.4.0 | 💨 Air Quality (AQI, smoke, pollution) | EPA AirNow | 📋 Planned |
+| 1.5.0 | 🛡️ Threat Advisories (terrorism, travel risk) | DHS NTAS, State Dept | 📋 Planned |
+
+All data sources are **free, public, and require no API keys**. Zero-config by design.
 
 ---
 

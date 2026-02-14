@@ -4,7 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "wems-mcp-server"
-version = "1.1.0"
+version = "1.1.1"
+mcpName = "io.github.heliosarchitect/wems"
 authors = [
     {name = "Helios", email = "heliosarchitectlbf@gmail.com"}
 ]
