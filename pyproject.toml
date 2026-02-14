@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools>=61.0", "wheel"]
+requires = ["setuptools>=61.0,<72", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -70,6 +70,9 @@ dev = [
     "black>=23.0.0",
     "flake8>=6.0.0"
 ]
+
+[tool.setuptools]
+py-modules = ["wems_mcp_server"]
 
 [tool.setuptools.packages.find]
 where = ["."]
