@@ -1,0 +1,49 @@
+# WEMS — AI Documentation Table of Contents
+
+## Core Documentation
+- wems.ai.register — version forensics, API endpoint tracking, rollback guide
+- README.md — project overview, quick start, MCP integration guide
+- AI.CONTEXT.md — LBF AI Navigation Standard documentation
+- CHANGELOG.md — version history and feature additions
+- CONTRIBUTING.md — development guidelines and contribution process
+
+## Release Documentation
+- PUBLISH-STATUS.md — PyPI publishing workflow and automation
+- REGISTRY-PUBLISHING-STATUS.md — MCP registry submission status
+- RELEASE-NOTES-v1.0.0.md — v1.0.0 release announcement and features
+- MONETIZATION-SPRINT-SUMMARY.md — premium feature planning and tier gates
+
+## Scripts - Core Server
+- wems_mcp_server.py — main MCP server with 12 monitoring tools
+- server.json — MCP server configuration and tool definitions
+- mcp-registry.json — registry submission metadata
+
+## Configuration
+- config.example.yaml — example configuration with all alert thresholds
+- requirements.txt — Python dependencies for MCP server
+- package.json — Node.js package metadata for npm compatibility
+
+## Test Suite
+- tests/__init__.py — test package initialization
+- tests/conftest.py — pytest configuration and shared fixtures
+- tests/test_server.py — MCP server startup and tool registration tests
+- tests/test_earthquakes.py — USGS earthquake API integration tests
+- tests/test_tsunamis.py — NOAA tsunami warning API tests
+- tests/test_volcanoes.py — Smithsonian GVP volcanic activity tests
+- tests/test_solar.py — NOAA space weather K-index tests
+- tests/test_space_weather_alerts.py — NOAA SWPC active alerts tests  
+- tests/test_hurricanes.py — NHC tropical cyclone tracking tests
+- tests/test_wildfires.py — NIFC fire weather alert tests
+- tests/test_severe_weather.py — NWS severe weather alert tests
+- tests/test_floods.py — USGS water services flood warning tests
+- tests/test_air_quality.py — OpenAQ air quality monitoring tests
+- tests/test_drought_status.py — US Drought Monitor API integration tests
+- tests/test_threat_advisories.py — DHS/State Dept threat monitoring tests
+- tests/test_configure_alerts.py — alert configuration and webhook tests
+
+## Package Metadata
+- wems_mcp_server.egg-info/PKG-INFO — Python package information
+- wems_mcp_server.egg-info/entry_points.txt — MCP server entry point definition
+- wems_mcp_server.egg-info/requires.txt — package dependencies
+- wems_mcp_server.egg-info/SOURCES.txt — included source files manifest
+- wems_mcp_server.egg-info/top_level.txt — top-level module names
