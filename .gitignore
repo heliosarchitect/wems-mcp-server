@@ -90,3 +90,9 @@ __pycache__/
 *.egg-info/
 dist/
 
+# Internal planning docs (not for public consumption)
+MONETIZATION-SPRINT-SUMMARY.md
+PUBLISH-STATUS.md
+REGISTRY-PUBLISHING-STATUS.md
+RELEASE-NOTES-v1.0.0.md
+
