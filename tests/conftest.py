@@ -5,7 +5,7 @@ Test fixtures and configuration for WEMS MCP Server tests.
 import asyncio
 import json
 import tempfile
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from typing import Dict, Any
 import pytest
 import httpx
@@ -189,14 +189,14 @@ def mock_solar_events_response():
     now = datetime.now(timezone.utc)
     return [
         {
-            "begin_time": (now.replace(hour=now.hour-2)).strftime('%Y-%m-%dT%H:%M:%SZ'),
+            "begin_time": (now - timedelta(hours=2)).strftime('%Y-%m-%dT%H:%M:%SZ'),
             "type": "Solar Flare",
             "message": "M2.1 Solar Flare observed from Region 3234",
             "space_weather_message_code": "ALTK05",
             "issue_datetime": now.strftime('%Y-%m-%dT%H:%M:%SZ')
         },
         {
-            "begin_time": (now.replace(hour=now.hour-6)).strftime('%Y-%m-%dT%H:%M:%SZ'),
+            "begin_time": (now - timedelta(hours=6)).strftime('%Y-%m-%dT%H:%M:%SZ'),
             "type": "Geomagnetic Activity",
             "message": "Minor geomagnetic storm conditions observed",
             "space_weather_message_code": "WARK04",
@@ -213,7 +213,7 @@ def mock_tsunami_response():
         {
             "location": "Near the coast of Central Peru",
             "magnitude": "7.2",
-            "time": (now.replace(hour=now.hour-3)).isoformat().replace('+00:00', 'Z'),
+            "time": (now - timedelta(hours=3)).isoformat().replace('+00:00', 'Z'),
             "updated": now.isoformat().replace('+00:00', 'Z'),
             "url": "https://www.tsunami.gov/events/PHEB/2024/02/13/PHEB240213.001.html",
             "status": "active"

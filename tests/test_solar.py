@@ -4,7 +4,7 @@ Tests for solar/space weather monitoring functionality.
 
 import pytest
 from unittest.mock import patch, AsyncMock
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 import httpx
 
 from wems_mcp_server import WemsServer
@@ -119,8 +119,8 @@ class TestCheckSolar:
     async def test_check_solar_event_filtering_24h(self, wems_server_default, mock_solar_kindex_response):
         """Test that only events from last 24 hours are shown."""
         now = datetime.now(timezone.utc)
-        old_time = now.replace(day=now.day-2)  # 2 days ago
-        recent_time = now.replace(hour=now.hour-2)  # 2 hours ago
+        old_time = now - timedelta(days=2)  # 2 days ago
+        recent_time = now - timedelta(hours=2)  # 2 hours ago
         
         events_data = [
             {

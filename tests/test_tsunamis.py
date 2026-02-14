@@ -4,7 +4,7 @@ Tests for tsunami monitoring functionality.
 
 import pytest
 from unittest.mock import patch, AsyncMock
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 import httpx
 
 from wems_mcp_server import WemsServer
@@ -78,8 +78,8 @@ class TestCheckTsunamis:
     async def test_check_tsunamis_time_filtering_24h(self, wems_server_default):
         """Test that only warnings from last 24 hours are shown."""
         now = datetime.now(timezone.utc)
-        old_time = now.replace(day=now.day-2)  # 2 days ago
-        recent_time = now.replace(hour=now.hour-3)  # 3 hours ago
+        old_time = now - timedelta(days=2)  # 2 days ago
+        recent_time = now - timedelta(hours=3)  # 3 hours ago
         
         tsunami_data = [
             {
