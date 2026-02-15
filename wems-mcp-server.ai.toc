@@ -1,0 +1,106 @@
+# WEMS MCP Server — Documentation TOC
+## Core MCP Server
+- wems_mcp_server.py — Main MCP server with 11 natural hazard monitoring tools (3,245 lines)
+
+## Natural Hazard Monitoring Tools
+### Geological Hazards
+- check_earthquakes — USGS earthquake monitoring with magnitude filtering and geographic bounds
+- check_volcanoes — Smithsonian GVP + USGS volcanic activity alerts and eruption status
+- check_tsunamis — NOAA PTWC + CTWC tsunami warnings across Pacific/Atlantic/Indian basins
+
+### Weather & Climate Hazards  
+- check_hurricanes — NHC tropical cyclone tracking with forecast tracks and intensity data
+- check_severe_weather — NWS severe weather alerts (tornadoes, thunderstorms, flash floods)
+- check_floods — USGS + NOAA flood warnings with river gauge data and flood stage monitoring
+- check_wildfires — NWS + NIFC fire weather alerts and active fire perimeter data
+- check_air_quality — OpenAQ global air quality monitoring (PM2.5, PM10, O₃, NO₂, SO₂, CO)
+- check_drought_status — US Drought Monitor state drought conditions (D0-D4 levels, premium)
+
+### Space Weather
+- check_solar — NOAA SWPC space weather monitoring (K-index, solar flares, CMEs, geomagnetic storms)
+- check_space_weather_alerts — Active space weather alerts and warnings from NOAA SWPC
+
+### Security & Threats
+- check_threat_advisories — DHS NTAS terrorism alerts, State Dept travel advisories, CISA cyber threats
+
+## Configuration & Management
+- configure_alerts — Alert threshold configuration and webhook endpoint management
+
+## Data Sources Integration
+### Government APIs (No Keys Required)
+- USGS Earthquake Hazards Program — Real-time earthquake data and ShakeMap integration
+- NOAA Pacific/Central Tsunami Warning Centers — Tsunami bulletin and advisory system
+- Smithsonian Global Volcanism Program — Volcanic activity reports and alert levels
+- NOAA Space Weather Prediction Center — Solar activity and geomagnetic storm data
+- National Hurricane Center (NHC) — Tropical cyclone data and forecast tracks
+- National Interagency Fire Center (NIFC) — Wildfire incident management data
+- National Weather Service Alerts API — Severe weather warnings and watches
+- USGS Water Services — River gauge data and flood stage information
+- OpenAQ — Global air quality measurements from monitoring stations
+- DHS National Terrorism Advisory System — Terrorism threat level advisories
+- US State Department Travel Advisories — Country-specific travel safety warnings
+- CISA Cybersecurity Advisories — Critical infrastructure cyber threat notifications
+- US Drought Monitor — Weekly drought condition assessments and trend analysis
+
+## Testing Suite
+- tests/conftest.py — Test configuration and shared fixtures
+- tests/__init__.py — Test package initialization
+- tests/test_server.py — MCP server functionality tests
+- tests/test_earthquakes.py — Earthquake monitoring tool tests
+- tests/test_tsunamis.py — Tsunami warning system tests
+- tests/test_volcanoes.py — Volcanic activity monitoring tests
+- tests/test_solar.py — Solar weather monitoring tests
+- tests/test_hurricanes.py — Hurricane tracking system tests
+- tests/test_wildfires.py — Wildfire alert system tests
+- tests/test_severe_weather.py — Severe weather monitoring tests (147+ tests)
+- tests/test_floods.py — Flood monitoring and river gauge tests (20+ tests)
+- tests/test_air_quality.py — Air quality monitoring tests
+- tests/test_threat_advisories.py — Security threat monitoring tests
+- tests/test_space_weather_alerts.py — Space weather alert system tests
+- tests/test_drought_status.py — Drought monitoring system tests (premium tier)
+- tests/test_configure_alerts.py — Alert configuration system tests
+
+## Documentation
+- README.md — Comprehensive project overview, installation, and usage guide
+- CHANGELOG.md — Version history with detailed feature additions and bug fixes
+- AI.CONTEXT.md — LBF AI Navigation Standard documentation
+- CONTRIBUTING.md — Developer contribution guidelines and code standards
+- RELEASE-NOTES-v1.0.0.md — Major version release documentation
+- PUBLISH-STATUS.md — Publication and distribution status tracking
+- REGISTRY-PUBLISHING-STATUS.md — MCP Registry publication status
+- MONETIZATION-SPRINT-SUMMARY.md — Business model and tier strategy documentation
+
+## Configuration Files
+- pyproject.toml — Python package configuration with dependencies and metadata
+- package.json — Node.js package configuration for NPM distribution
+- server.json — MCP server configuration schema and tool definitions
+- mcp-registry.json — MCP Registry integration configuration
+- requirements.txt — Python dependencies for development and runtime
+
+## CI/CD Pipeline
+- .github/workflows/ci.yml — GitHub Actions continuous integration
+- .github/workflows/publish.yml — Automated PyPI publishing workflow
+- .gitea/workflows/ci.yml — Gitea CI/CD pipeline for alternative hosting
+
+## Tier System Implementation
+### Free Tier Limitations
+- Earthquake: min 4.5 magnitude, hour/day periods only, 5 results max
+- Solar: current conditions only, no forecasts/historical, 3 events max
+- Volcano: WARNING level only, no region filtering
+- Tsunami: Pacific basin only, 3 results max
+- Hurricane: Atlantic basin only, no forecast tracks, 3 results max
+- Wildfire: warnings only, no region filtering, 3 results max
+- Severe Weather: 24h only, extreme/severe only, 3 results max, no state filtering
+- Floods: 24h only, major stage only, 3 results max, no river gauges
+- Air Quality: US only, PM2.5/O₃ only, 3 results max
+- Threats: terrorism (DHS) only, 3 results max
+- Space Weather: 24h only, 5 results max
+- Drought: Not available (premium only)
+
+### Premium Tier Features
+- Full magnitude ranges, extended time periods, region filtering
+- Forecast data, historical data, comprehensive results (25 max)
+- All alert levels, all basins, all pollutants
+- State filtering, coordinate search, river gauge integration
+- Multi-country coverage, all threat types
+- Drought monitoring with D0-D4 levels and trend analysis

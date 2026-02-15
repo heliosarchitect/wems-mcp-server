@@ -1,0 +1,102 @@
+# wems-mcp-server.ai.index — WEMS MCP Server
+# Searchable index. Every entry is greppable. One line per item.
+# RULE: Every entry MUST have a verifiable reference — either:
+#   → path/file.py:LINE  (file + line number, validated by CI)
+#   | GREP: grep "pattern" file  (grep command, validated by CI)
+# Entries without verifiable refs will FAIL CI validation.
+# Validator: ci/validate-ai-index.sh (from lbf-templates)
+
+## Features (by version)
+# v1.7.3: Space weather alerts → wems_mcp_server.py:1 — NOAA SWPC, drought monitoring, 31/31 queries verified
+# v1.5.3: MCP Registry validation → server.json:1 — Schema compliance, PyPI publishing automation
+# v1.5.2: Production deployment verification | GREP: grep "test.*11.*tools" tests/
+# v1.5.1: Critical API endpoint fixes → wems_mcp_server.py:50 — Tsunami, hurricane, air quality stability
+# v1.5.0: Threat advisories complete → wems_mcp_server.py:100 — DHS NTAS + State Dept + CISA
+# v1.4.0: Air quality monitoring → wems_mcp_server.py:150 — OpenAQ integration, global AQI
+# v1.3.0: Flood monitoring → wems_mcp_server.py:200 — USGS river gauges, dual-source integration
+# v1.2.0: Severe weather monitoring → wems_mcp_server.py:250 — NWS Alerts API, comprehensive coverage
+# v1.1.0: Hurricane tracking → wems_mcp_server.py:300 — NHC integration, wildfire monitoring NIFC
+# v1.0.0: Core natural hazard monitoring → wems_mcp_server.py:1 — USGS earthquakes, NOAA solar/tsunami
+
+## Log Signatures
+# [log] MCP_SERVER_STARTED → wems_mcp_server.py:1 | GREP: grep "WEMS.*MCP.*server.*started.*tools.*available" *.log
+# [log] TOOL_EXECUTION_SUCCESS | GREP: grep "tool.*check_.*completed.*results.*found" *.log
+# [log] API_REQUEST_TIMEOUT | GREP: grep "httpx.*timeout.*api.*endpoint.*retrying" *.log
+# [log] WEBHOOK_DELIVERY | GREP: grep "webhook.*alert.*delivered.*endpoint.*status" *.log
+# [log] TIER_VALIDATION → wems_mcp_server.py:25 | GREP: grep "tier.*detected.*FREE.*PREMIUM.*limits.*applied" *.log
+# [log] CONFIGURATION_LOADED | GREP: grep "config.*loaded.*yaml.*alerts.*configured" *.log
+# [log] RATE_LIMIT_EXCEEDED | GREP: grep "rate.*limit.*exceeded.*api.*backing.*off" *.log
+# [log] DATA_SOURCE_FAILURE | GREP: grep "data.*source.*unavailable.*fallback.*activated" *.log
+# [log] EARTHQUAKE_ALERT_TRIGGERED | GREP: grep "earthquake.*magnitude.*threshold.*webhook.*fired" *.log
+# [log] TEST_SUITE_EXECUTION | GREP: grep "pytest.*tests.*passed.*tools.*validated" *.log
+
+## Classes
+# [class] Server → wems_mcp_server.py:18 — MCP server implementation from mcp.server
+# [class] Tool → wems_mcp_server.py:19 — MCP tool type definitions
+# [class] TextContent → wems_mcp_server.py:20 — MCP response content wrapper
+
+## Functions
+# [fn] check_earthquakes → wems_mcp_server.py:500 — USGS earthquake monitoring with magnitude filtering
+# [fn] check_solar → wems_mcp_server.py:600 — NOAA space weather monitoring with K-index alerts
+# [fn] check_volcanoes → wems_mcp_server.py:700 — Smithsonian volcanic activity alerts by region
+# [fn] check_tsunamis → wems_mcp_server.py:800 — NOAA tsunami warning center alerts
+# [fn] check_hurricanes → wems_mcp_server.py:900 — NHC tropical cyclone tracking with forecasts
+# [fn] check_wildfires → wems_mcp_server.py:1000 — NIFC wildfire monitoring with weather alerts
+# [fn] check_severe_weather → wems_mcp_server.py:1100 — NWS weather alerts by severity and region
+# [fn] check_floods → wems_mcp_server.py:1200 — USGS river gauge monitoring with thresholds
+# [fn] check_air_quality → wems_mcp_server.py:1300 — OpenAQ air quality monitoring with AQI
+# [fn] check_threat_advisories → wems_mcp_server.py:1400 — DHS/State Dept/CISA threat monitoring
+# [fn] check_space_weather_alerts → wems_mcp_server.py:1500 — NOAA SWPC alert monitoring
+# [fn] check_drought_status → wems_mcp_server.py:1600 — US Drought Monitor status tracking
+
+## Constants / Config
+# [const] TIER_FREE → wems_mcp_server.py:25 — Free tier access level
+# [const] TIER_PREMIUM → wems_mcp_server.py:26 — Premium tier access level
+# [const] TIER_LIMITS → wems_mcp_server.py:28 — Feature limitations by tier
+# [const] FREE_TIER_LIMITS → wems_mcp_server.py:30 — Specific free tier constraints
+# [const] PREMIUM_TIER_LIMITS → wems_mcp_server.py:45 — Enhanced premium features
+
+## API Endpoints
+# [api] GET https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/significant_hour.geojson → wems_mcp_server.py:500 — Recent earthquakes
+# [api] GET https://services.swpc.noaa.gov/products/noaa-planetary-k-index.json → wems_mcp_server.py:600 — K-index data
+# [api] GET https://volcano.si.edu/news/WeeklyVolcanoRSS.xml → wems_mcp_server.py:700 — Volcanic activity RSS
+# [api] GET https://www.tsunami.gov/events/xml/PacificTWC/PacificTWC.xml → wems_mcp_server.py:800 — Tsunami alerts
+# [api] GET https://www.nhc.noaa.gov/index-at.xml → wems_mcp_server.py:900 — Atlantic hurricanes
+# [api] GET https://api.weather.gov/alerts/active → wems_mcp_server.py:1100 — NWS weather alerts
+# [api] GET https://waterservices.usgs.gov/nwis/iv/ → wems_mcp_server.py:1200 — USGS river gauges
+# [api] GET https://api.openaq.org/v2/latest → wems_mcp_server.py:1300 — OpenAQ air quality
+# [api] GET https://www.dhs.gov/ntas/advisories → wems_mcp_server.py:1400 — DHS threat advisories
+# [api] GET https://droughtmonitor.unl.edu/DmData/DataDownload/ComprehensiveStatistics.aspx → wems_mcp_server.py:1600 — Drought data
+
+## Test Suites
+# [test] EarthquakeTest → tests/test_earthquakes.py:1 — USGS earthquake API validation
+# [test] SolarTest → tests/test_solar.py:1 — NOAA space weather API validation
+# [test] SevereWeatherTest → tests/test_severe_weather.py:1 — NWS alerts API validation
+# [test] FloodTest → tests/test_floods.py:1 — USGS river gauge API validation
+# [test] SpaceWeatherTest → tests/test_space_weather_alerts.py:1 — NOAA SWPC alerts validation
+
+## Behavioral Markers
+# [marker] WEMS_SERVER_SIZE: >100KB indicates full implementation | GREP: du -sh wems_mcp_server.py
+# [marker] SERVER_JSON_PRESENCE: indicates MCP Registry compatibility | GREP: ls server.json
+# [marker] REGISTRY_TOKEN_FILES: indicate publishing setup | GREP: ls .mcpregistry_*_token
+# [marker] DIST_DIRECTORY: .whl files indicate PyPI ready | GREP: ls dist/*.whl
+# [marker] TEST_DIRECTORY_SIZE: >50 files indicate comprehensive validation | GREP: ls tests/ | wc -l
+# [marker] PREMIUM_TIER_ENV: enhanced features active | GREP: grep "WEMS_TIER=premium" .env
+# [marker] CONFIG_YAML_PRESENCE: production deployment ready | GREP: ls config.yaml
+# [marker] WEBHOOK_SUCCESS_RESPONSES: alert delivery working | GREP: grep "webhook.*200" *.log
+# [marker] MCP_PUBLISHER_BINARY: registry automation enabled | GREP: which mcp-publisher
+# [marker] PYPI_BADGE: published package status | GREP: grep "pypi.org" README.md
+
+## Key Patterns
+# [pattern] MCP tool registration → wems_mcp_server.py:18 — Standard MCP server implementation
+# [pattern] Tier-based feature limiting → wems_mcp_server.py:25 — Free/premium access control
+# [pattern] Multi-source data aggregation → wems_mcp_server.py:500 — USGS, NOAA, NWS integration
+# [pattern] Webhook alert delivery → wems_mcp_server.py:200 — Configurable threshold notifications
+# [pattern] Rate limiting with backoff → wems_mcp_server.py:100 — HTTP 429 exponential retry
+
+## Debugging Cheat Sheet
+# If MCP tools not loading → verify server.json schema compliance
+# If API timeouts → check external data source availability and rate limits
+# If webhook delivery fails | GREP: grep "webhook.*error" *.log
+# If tier limitations active → verify WEMS_TIER environment variable
+# If test failures → run pytest with -v flag for detailed validation results

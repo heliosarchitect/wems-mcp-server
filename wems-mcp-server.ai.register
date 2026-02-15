@@ -1,0 +1,53 @@
+# WEMS MCP Server — AI Version Register
+CURRENT VERSION: 1.7.3
+## Active Features
+FEATURE: World Event Monitoring System MCP Server (v1.7.3)
+  SIGNATURE: "wems_mcp_server.py" with 11 MCP tools monitoring natural hazards
+  FAILURE MODE: API rate limiting from government sources, network timeouts on remote endpoints
+  ROLLBACK: Disable specific monitoring tools, use cached responses, implement exponential backoff
+
+FEATURE: Dual-Tier Service Model (v1.0.0)
+  SIGNATURE: TIER_FREE and TIER_PREMIUM with feature/result limitations in code
+  FAILURE MODE: Tier validation bypassed, premium features accessed without authorization
+  ROLLBACK: Remove tier restrictions, make all features free, single service level
+
+FEATURE: 9+ Authoritative Data Sources (v1.7.3)
+  SIGNATURE: USGS, NOAA, Smithsonian GVP, NHC, NIFC, OpenAQ, DHS, State Dept, CISA integrations
+  FAILURE MODE: Government API changes breaking parsers, XML/JSON schema drift
+  ROLLBACK: Pin to specific API versions, implement schema validation, graceful degradation
+
+FEATURE: Real-time Natural Hazard Monitoring (v1.0.0)
+  SIGNATURE: Earthquake, tsunami, volcano, solar, hurricane, wildfire, severe weather alerts
+  FAILURE MODE: False positive alerts, missing critical events, data staleness
+  ROLLBACK: Increase alert thresholds, disable automated notifications, manual verification
+
+FEATURE: Configurable Webhook Alerts (v1.0.0)
+  SIGNATURE: configure_alerts tool with threshold customization and webhook endpoints
+  FAILURE MODE: Webhook spam from threshold tuning, endpoint failures causing backlog
+  ROLLBACK: Disable webhook delivery, local-only alerts, manual configuration only
+
+FEATURE: Geographic Filtering (v1.1.0)
+  SIGNATURE: Region/state filtering across multiple monitoring tools
+  FAILURE MODE: Incorrect geographic parsing, coordinate system mismatches
+  ROLLBACK: Global monitoring only, remove location-based filtering
+
+## Known Bugs
+BUG: Hurricane forecast track data inconsistent
+  SYMPTOMS: Some storms missing forecast cone data from NHC feeds
+  WORKAROUND: Fall back to current position only when forecast unavailable
+
+BUG: Solar flare classification edge cases
+  SYMPTOMS: M-class flares occasionally miscategorized as X-class
+  WORKAROUND: Add magnitude bounds checking in solar event parser
+
+BUG: Air quality station coordinate precision
+  SYMPTOMS: OpenAQ coordinates sometimes truncated affecting location accuracy
+  WORKAROUND: Use city-level fallback when coordinates insufficient
+
+## Bug Fix History
+2026-02-13: Fixed complete flood test mocking for USGS river gauge data
+2026-02-13: Fixed NWS flood alerts mocking in flood watch test cases
+2026-02-12: Added space weather alerts and drought monitoring tools
+2026-02-12: Fixed MCP Registry validation with correct mcp-name in README
+2026-02-11: Fixed CI import check to use correct WemsServer class name
+2026-02-10: Fixed tiered access validation for premium feature restrictions
