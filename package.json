@@ -1,6 +1,6 @@
 {
   "name": "wems-mcp-server",
-  "version": "1.0.0",
+  "version": "1.8.0",
   "description": "World Event Monitoring System - MCP server for natural hazard monitoring (earthquakes, tsunamis, volcanoes, solar events)",
   "main": "wems_mcp_server.py",
   "scripts": {
