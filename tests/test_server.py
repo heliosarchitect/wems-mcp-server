@@ -7,6 +7,7 @@ import os
 import tempfile
 import pytest
 import yaml
+import httpx
 from unittest.mock import patch, AsyncMock
 
 from wems_mcp_server import WemsServer
@@ -222,3 +223,52 @@ class TestWemsServerHTTPClientManagement:
         # Second close should not raise an error
         await server.http_client.aclose()
         assert server.http_client.is_closed
+
+
+class TestSourceReliabilityContract:
+    """Test minimal reliability contract behavior for upstream sources."""
+
+    @pytest.mark.asyncio
+    async def test_fetch_json_contract_success(self, wems_server_default, mock_earthquake_response):
+        with patch.object(wems_server_default.http_client, 'get', new_callable=AsyncMock) as mock_get:
+            from tests.conftest import MockResponse
+            mock_get.return_value = MockResponse(mock_earthquake_response)
+
+            data, err = await wems_server_default._fetch_json_with_contract(
+                "usgs_earthquakes",
+                "https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/4.5_day.geojson",
+            )
+
+            assert err is None
+            assert data is not None
+            assert "metadata" in data
+            assert "features" in data
+
+    @pytest.mark.asyncio
+    async def test_fetch_json_contract_timeout_taxonomy(self, wems_server_default):
+        with patch.object(wems_server_default.http_client, 'get', new_callable=AsyncMock) as mock_get:
+            mock_get.side_effect = httpx.TimeoutException("timed out")
+
+            data, err = await wems_server_default._fetch_json_with_contract(
+                "usgs_earthquakes",
+                "https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/4.5_day.geojson",
+            )
+
+            assert data is None
+            assert err is not None
+            assert err["taxonomy"] == "upstream_timeout"
+
+    @pytest.mark.asyncio
+    async def test_fetch_json_contract_schema_smoke_check(self, wems_server_default):
+        with patch.object(wems_server_default.http_client, 'get', new_callable=AsyncMock) as mock_get:
+            from tests.conftest import MockResponse
+            mock_get.return_value = MockResponse({"unexpected": True})
+
+            data, err = await wems_server_default._fetch_json_with_contract(
+                "usgs_earthquakes",
+                "https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/4.5_day.geojson",
+            )
+
+            assert data is None
+            assert err is not None
+            assert err["taxonomy"] == "schema_error"

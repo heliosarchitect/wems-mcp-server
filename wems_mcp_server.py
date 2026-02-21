@@ -11,20 +11,26 @@ import json
 import os
 import re
 import sys
+import time
 import xml.etree.ElementTree as ET
 from datetime import datetime, timedelta, timezone
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 import httpx
 import yaml
 from mcp.server import Server
 from mcp.types import Tool, TextContent
 
+# WEMS licensing and rate limiting
+from wems_rate_limit import check_rate_limit, get_limit_display
+from wems_usage import record_api_call
+
 
 # ─── Tier Definitions ────────────────────────────────────────────────────────
 
 TIER_FREE = "free"
 TIER_PREMIUM = "premium"
+TIER_ENTERPRISE = "enterprise"
 
 TIER_LIMITS = {
     TIER_FREE: {
@@ -113,6 +119,50 @@ TIER_LIMITS = {
         "drought_weeks_back": 52,            # Up to 1 year historical
         "configure_alerts": True,              # Full alert customization
         "polling_note": "Real-time updates",
+    },
+    TIER_ENTERPRISE: {
+        "earthquake_min_magnitude": 1.0,       # Full range
+        "earthquake_time_periods": ["hour", "day", "week", "month"],
+        "earthquake_max_results": 1000,        # Enterprise-scale results
+        "solar_forecasts": True,               # 3-day forecasts
+        "solar_historical": True,              # Historical data
+        "solar_max_events": 100,               # More events
+        "volcano_region_filter": True,         # Region filtering
+        "volcano_alert_levels": ["NORMAL", "ADVISORY", "WATCH", "WARNING"],
+        "tsunami_max_results": 100,
+        "tsunami_regions": ["pacific", "atlantic", "indian", "mediterranean"],
+        "hurricane_basins": ["atlantic", "pacific"],  # All basins
+        "hurricane_include_forecast": True,    # Forecast tracks
+        "hurricane_max_results": 100,
+        "wildfire_max_results": 100,          # Enterprise fire data
+        "wildfire_region_filter": True,       # Region filtering
+        "severe_weather_max_results": 100,    # Enterprise alerts
+        "severe_weather_time_range": 720,     # Hours (up to 30 days)
+        "severe_weather_severities": ["extreme", "severe", "moderate", "minor"],  # All severities
+        "severe_weather_state_filter": True,  # State filtering
+        "floods_max_results": 100,            # Enterprise floods
+        "floods_time_range": 720,             # Hours (up to 30 days)
+        "floods_stages": ["action", "minor", "moderate", "major"],  # All flood stages
+        "floods_state_filter": True,          # State filtering
+        "floods_river_gauges": True,          # River gauge data
+        "air_quality_max_results": 100,       # Enterprise results
+        "air_quality_countries": None,        # Global (None = all)
+        "air_quality_parameters": ["pm25", "pm10", "o3", "no2", "so2", "co"],  # All pollutants
+        "air_quality_city_filter": True,      # City/zip filtering
+        "air_quality_coordinates": True,      # Lat/lon search
+        "air_quality_forecast": True,         # Forecast data
+        "threat_max_results": 100,            # Enterprise advisories
+        "threat_types": ["terrorism", "travel", "cyber", "all"],  # All threat types
+        "threat_countries_filter": True,      # Country filtering
+        "threat_region_filter": True,         # Region filtering
+        "threat_include_expired": True,       # Include expired advisories
+        "threat_include_historical": True,    # Historical data
+        "space_weather_max_results": 100,     # Enterprise space weather alerts
+        "space_weather_hours_back": 720,      # Up to 30 days
+        "drought_status": True,                # Full drought monitoring
+        "drought_weeks_back": 260,            # Up to 5 years historical
+        "configure_alerts": True,             # Full alert customization
+        "polling_note": "Real-time updates + API access",
     }
 }
 
@@ -121,18 +171,36 @@ def _get_tier(api_key: Optional[str] = None) -> str:
     """Determine user tier from API key or environment.
     
     Tier resolution order:
-    1. WEMS_API_KEY environment variable
-    2. api_key passed in config
-    3. Default to free tier
+    1. WEMS_API_KEY environment variable (license key validation)
+    2. api_key passed in config (license key validation)  
+    3. Fallback to WEMS_PREMIUM_KEYS list check (legacy)
+    4. Default to free tier
     
-    Premium keys are validated against WEMS_PREMIUM_KEYS (comma-separated)
-    or via Stripe webhook validation (when configured).
+    License keys have format: WEMS-XXXX-XXXX-XXXX-XXXX and are self-validating.
     """
     key = api_key or os.environ.get("WEMS_API_KEY", "")
     if not key:
         return TIER_FREE
     
-    # Check against local premium keys list
+    # First, try to validate as a license key
+    try:
+        from wems_license import validate_license_key, is_license_key
+        
+        if is_license_key(key):
+            license_info = validate_license_key(key)
+            
+            # Check if license is valid and not expired
+            if license_info['valid'] and not license_info['expired']:
+                return license_info['tier']
+            elif license_info['expired']:
+                # Expired license keys fall back to free tier
+                return TIER_FREE
+                
+    except Exception:
+        # If license validation fails, fall back to legacy checks
+        pass
+    
+    # Fallback to legacy premium keys list
     premium_keys = os.environ.get("WEMS_PREMIUM_KEYS", "").split(",")
     premium_keys = [k.strip() for k in premium_keys if k.strip()]
     
@@ -172,8 +240,19 @@ class WemsServer:
         self.server = Server("wems")
         self.config = self._load_config(config_path) or {}
         self.http_client = httpx.AsyncClient(timeout=30.0)
-        self.tier = _get_tier(self.config.get("api_key"))
+        self.api_key = self.config.get("api_key") or os.environ.get("WEMS_API_KEY", "")
+        self.tier = _get_tier(self.api_key)
         self.limits = _tier_limits(self.tier)
+        self.source_contracts = {
+            "usgs_earthquakes": {
+                "timeout_seconds": 12.0,
+                "fallback_urls": [
+                    "https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/2.5_day.geojson"
+                ],
+                "required_keys": ["metadata", "features"],
+                "max_age_hours": 36,
+            }
+        }
         
         # Register MCP tools
         self._register_tools()
@@ -197,6 +276,118 @@ class WemsServer:
                     "wildfire": {"enabled": True}
                 }
             }
+    
+    def _check_rate_limit_and_record_usage(self, tool_name: str) -> Optional[str]:
+        """Check rate limit and record usage. Returns error message if rate limited."""
+        try:
+            # Use API key or IP-based identification for rate limiting
+            rate_key = self.api_key if self.api_key else "anonymous"
+            
+            # Check rate limit
+            rate_result = check_rate_limit(rate_key, self.tier)
+            
+            if not rate_result["allowed"]:
+                remaining_time = rate_result.get("reset_time", 0) - time.time()
+                remaining_minutes = int(remaining_time / 60) if remaining_time > 0 else 0
+                
+                limit_info = get_limit_display(self.tier)
+                return (f"🚫 **Rate Limit Exceeded**\n\n"
+                       f"Current tier: {limit_info}\n"
+                       f"Try again in {remaining_minutes} minutes.\n\n"
+                       f"Upgrade to Premium for higher limits: https://wems.dev/premium")
+            
+            # Record successful API call for usage tracking
+            record_api_call(
+                license_key=self.api_key if self.api_key else None,
+                tier=self.tier,
+                tool_name=tool_name,
+                success=True
+            )
+            
+            return None  # No error
+            
+        except Exception as e:
+            # Don't let rate limiting break the API
+            print(f"Warning: Rate limiting error: {e}")
+            return None
+    
+    def _record_api_error(self, tool_name: str, error_message: str):
+        """Record an API error in usage tracking."""
+        try:
+            record_api_call(
+                license_key=self.api_key if self.api_key else None,
+                tier=self.tier,
+                tool_name=tool_name,
+                success=False,
+                error_message=error_message
+            )
+        except Exception as e:
+            print(f"Warning: Usage tracking error: {e}")
+
+    async def _fetch_json_with_contract(
+        self,
+        source_name: str,
+        primary_url: str,
+    ) -> Tuple[Optional[Dict[str, Any]], Optional[Dict[str, str]]]:
+        """Fetch JSON with per-source reliability contract (timeout/fallback/schema/freshness)."""
+        contract = self.source_contracts.get(source_name, {})
+        timeout_seconds = float(contract.get("timeout_seconds", 30.0))
+        fallback_urls = contract.get("fallback_urls", [])
+        required_keys = contract.get("required_keys", [])
+        max_age_hours = contract.get("max_age_hours")
+
+        urls_to_try = [primary_url, *fallback_urls]
+        last_error: Optional[Dict[str, str]] = None
+
+        for url in urls_to_try:
+            try:
+                response = await self.http_client.get(url, timeout=timeout_seconds)
+                response.raise_for_status()
+                data = response.json()
+
+                missing = [k for k in required_keys if k not in data]
+                if missing:
+                    last_error = {
+                        "taxonomy": "schema_error",
+                        "detail": f"missing keys: {', '.join(missing)}",
+                        "source": url,
+                    }
+                    continue
+
+                if max_age_hours and source_name == "usgs_earthquakes":
+                    features = data.get("features") or []
+                    if features:
+                        try:
+                            newest_epoch_ms = max(
+                                int((f.get("properties") or {}).get("time", 0))
+                                for f in features
+                            )
+                            newest_dt = datetime.fromtimestamp(newest_epoch_ms / 1000, tz=timezone.utc)
+                            age_hours = (datetime.now(timezone.utc) - newest_dt).total_seconds() / 3600
+                            if age_hours > float(max_age_hours):
+                                last_error = {
+                                    "taxonomy": "stale_data",
+                                    "detail": f"newest event age {age_hours:.1f}h exceeds {max_age_hours}h",
+                                    "source": url,
+                                }
+                                continue
+                        except Exception:
+                            # If we cannot parse event times, do not hard-fail freshness gate.
+                            pass
+
+                return data, None
+
+            except httpx.TimeoutException as e:
+                last_error = {"taxonomy": "upstream_timeout", "detail": str(e), "source": url}
+            except httpx.HTTPStatusError as e:
+                status = getattr(e.response, "status_code", "unknown")
+                last_error = {"taxonomy": "upstream_http_error", "detail": f"HTTP {status}", "source": url}
+            except ValueError as e:
+                last_error = {"taxonomy": "parse_error", "detail": str(e), "source": url}
+            except httpx.HTTPError as e:
+                last_error = {"taxonomy": "network_error", "detail": str(e), "source": url}
+
+        return None, (last_error or {"taxonomy": "unknown_error", "detail": "unknown", "source": primary_url})
     
     def _register_tools(self):
         """Register all MCP tools."""
@@ -556,38 +747,48 @@ class WemsServer:
         
         @self.server.call_tool()
         async def call_tool(name: str, arguments: Dict[str, Any]) -> List[TextContent]:
-            if name == "check_earthquakes":
-                return await self._check_earthquakes(**arguments)
-            elif name == "check_solar":
-                return await self._check_solar(**arguments)
-            elif name == "check_volcanoes":
-                return await self._check_volcanoes(**arguments)
-            elif name == "check_tsunamis":
-                return await self._check_tsunamis(**arguments)
-            elif name == "check_hurricanes":
-                return await self._check_hurricanes(**arguments)
-            elif name == "check_wildfires":
-                return await self._check_wildfires(**arguments)
-            elif name == "check_severe_weather":
-                return await self._check_severe_weather(**arguments)
-            elif name == "check_floods":
-                return await self._check_floods(**arguments)
-            elif name == "check_air_quality":
-                return await self._check_air_quality(**arguments)
-            elif name == "check_threat_advisories":
-                return await self._check_threat_advisories(**arguments)
-            elif name == "check_space_weather_alerts":
-                return await self._check_space_weather_alerts(**arguments)
-            elif name == "check_drought_status":
-                if self.tier != TIER_PREMIUM:
-                    return [TextContent(type="text", text=f"🔒 US Drought Monitor requires WEMS Premium.{_upgrade_message('Drought status monitoring')}")] 
-                return await self._check_drought_status(**arguments)
-            elif name == "configure_alerts":
-                if self.tier != TIER_PREMIUM:
-                    return [TextContent(type="text", text=f"🔒 Custom alert configuration requires WEMS Premium.{_upgrade_message('Custom alert thresholds')}")]
-                return await self._configure_alerts(**arguments)
-            else:
-                return [TextContent(type="text", text=f"Unknown tool: {name}")]
+            # Check rate limits and record usage
+            rate_error = self._check_rate_limit_and_record_usage(name)
+            if rate_error:
+                return [TextContent(type="text", text=rate_error)]
+            
+            try:
+                if name == "check_earthquakes":
+                    return await self._check_earthquakes(**arguments)
+                elif name == "check_solar":
+                    return await self._check_solar(**arguments)
+                elif name == "check_volcanoes":
+                    return await self._check_volcanoes(**arguments)
+                elif name == "check_tsunamis":
+                    return await self._check_tsunamis(**arguments)
+                elif name == "check_hurricanes":
+                    return await self._check_hurricanes(**arguments)
+                elif name == "check_wildfires":
+                    return await self._check_wildfires(**arguments)
+                elif name == "check_severe_weather":
+                    return await self._check_severe_weather(**arguments)
+                elif name == "check_floods":
+                    return await self._check_floods(**arguments)
+                elif name == "check_air_quality":
+                    return await self._check_air_quality(**arguments)
+                elif name == "check_threat_advisories":
+                    return await self._check_threat_advisories(**arguments)
+                elif name == "check_space_weather_alerts":
+                    return await self._check_space_weather_alerts(**arguments)
+                elif name == "check_drought_status":
+                    if self.tier not in [TIER_PREMIUM, TIER_ENTERPRISE]:
+                        return [TextContent(type="text", text=f"🔒 US Drought Monitor requires WEMS Premium.{_upgrade_message('Drought status monitoring')}")] 
+                    return await self._check_drought_status(**arguments)
+                elif name == "configure_alerts":
+                    if self.tier not in [TIER_PREMIUM, TIER_ENTERPRISE]:
+                        return [TextContent(type="text", text=f"🔒 Custom alert configuration requires WEMS Premium.{_upgrade_message('Custom alert thresholds')}")]
+                    return await self._configure_alerts(**arguments)
+                else:
+                    return [TextContent(type="text", text=f"Unknown tool: {name}")]
+            except Exception as e:
+                # Record API error for tracking
+                self._record_api_error(name, str(e))
+                raise
     
     # ─── Earthquakes ─────────────────────────────────────────────────────
 
@@ -652,10 +853,12 @@ class WemsServer:
             url = f"https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/{mag_bracket}_{period}.geojson"
         
         try:
-            response = await self.http_client.get(url)
-            response.raise_for_status()
-            data = response.json()
-            
+            data, fetch_error = await self._fetch_json_with_contract("usgs_earthquakes", url)
+            if fetch_error or data is None:
+                taxonomy = (fetch_error or {}).get("taxonomy", "unknown_error")
+                detail = (fetch_error or {}).get("detail", "unknown")
+                return [TextContent(type="text", text=f"❌ Error fetching earthquake data [{taxonomy}]: {detail}")]
+
             count = data["metadata"]["count"]
             
             if count == 0:
