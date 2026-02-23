@@ -1,0 +1,7 @@
+{
+  "event_name": "wems.api.call",
+  "default_customer_id": null,
+  "api_key_to_customer": {
+    "example-wems-api-key": "cus_123456789"
+  }
+}

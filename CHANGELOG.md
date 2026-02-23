@@ -5,6 +5,18 @@ All notable changes to the WEMS MCP Server will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.13.0] - 2026-02-23
+
+### Added
+- Stripe metering scaffold for per-call billing (`wems_stripe_billing.py`).
+- Best-effort meter event emission on successful tool calls (does not block alerting path).
+- New billing config template: `config/wems_stripe_billing.json`.
+
+### Configuration
+- `WEMS_STRIPE_BILLING_ENABLED=1` to enable metering.
+- `STRIPE_API_KEY` / `STRIPE_SECRET_KEY` for Stripe auth.
+- `WEMS_STRIPE_BILLING_CONFIG` optional override for config path.
+
 ## [1.12.3] - 2026-02-23
 
 ### Fixed
