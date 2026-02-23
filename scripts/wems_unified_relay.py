@@ -7,12 +7,15 @@ from datetime import datetime, timezone
 
 import requests
 
-CONFIG_PATH = pathlib.Path('/home/bonsaihorn/.openclaw/workspace/pipeline-v2/config/wems_alert_config.json')
-STATE_PATH = pathlib.Path('/home/bonsaihorn/.openclaw/workspace/pipeline-v2/reports/weekly/wems_seen_ids.json')
+ROOT = pathlib.Path('/home/bonsaihorn/Projects/wems-mcp-server')
+CONFIG_PATH = ROOT / 'config' / 'wems_alert_config.json'
+STATE_PATH = ROOT / 'reports' / 'wems_seen_ids.json'
 USGS_SIG_URL = 'https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/significant_day.geojson'
 SWPC_ALERTS_URL = 'https://services.swpc.noaa.gov/products/alerts.json'
+GVP_WEEKLY_URL = 'https://volcano.si.edu/reports_weekly.cfm?format=json'
 
 SEV_ORDER = {'low': 1, 'medium': 2, 'high': 3, 'critical': 4}
+
 
 def load_json(path, default):
     if path.exists():
@@ -22,17 +25,20 @@ def load_json(path, default):
             return default
     return default
 
+
 def save_json(path, obj):
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(obj))
+
 
 def haversine_miles(lat1, lon1, lat2, lon2):
     r = 3958.8
     p1, p2 = math.radians(lat1), math.radians(lat2)
     d1 = math.radians(lat2 - lat1)
     d2 = math.radians(lon2 - lon1)
-    a = math.sin(d1/2)**2 + math.cos(p1)*math.cos(p2)*math.sin(d2/2)**2
-    return 2*r*math.asin(math.sqrt(a))
+    a = math.sin(d1 / 2) ** 2 + math.cos(p1) * math.cos(p2) * math.sin(d2 / 2) ** 2
+    return 2 * r * math.asin(math.sqrt(a))
+
 
 def norm_solar_sev(msg):
     m = (msg or '').lower()
@@ -41,6 +47,7 @@ def norm_solar_sev(msg):
     if 'warning' in m or 'alert' in m:
         return 'medium'
     return 'low'
+
 
 def should_pass_radius(cfg, event_type, lat, lon):
     home = cfg.get('home', {})
@@ -53,6 +60,7 @@ def should_pass_radius(cfg, event_type, lat, lon):
         return True, None
     d = haversine_miles(home['lat'], home['lon'], lat, lon)
     return d <= float(radius), round(d, 2)
+
 
 def fetch_usgs(session, cfg, seen):
     out = []
@@ -86,14 +94,15 @@ def fetch_usgs(session, cfg, seen):
             'magnitude': mag,
             'title': p.get('title') or f"M{mag:.1f} earthquake",
             'place': p.get('place'),
-            'happened_at': datetime.fromtimestamp((p.get('time') or 0)/1000, tz=timezone.utc).isoformat(),
+            'happened_at': datetime.fromtimestamp((p.get('time') or 0) / 1000, tz=timezone.utc).isoformat(),
             'url': p.get('url'),
             'lat': lat,
             'lon': lon,
             'distance_miles': dist,
-            'summary': f"🚨 Earthquake M{mag:.1f} — {p.get('place','unknown')}"
+            'summary': f"🚨 Earthquake M{mag:.1f} — {p.get('place', 'unknown')}"
         })
     return out
+
 
 def fetch_swpc(session, cfg, seen):
     out = []
@@ -101,7 +110,8 @@ def fetch_swpc(session, cfg, seen):
         return out
     resp = session.get(SWPC_ALERTS_URL, timeout=12)
     resp.raise_for_status()
-    rows = resp.json() if isinstance(resp.json(), list) else []
+    payload = resp.json()
+    rows = payload if isinstance(payload, list) else []
     min_sev = cfg.get('thresholds', {}).get('solar_min_severity', 'medium')
     min_rank = SEV_ORDER.get(min_sev, 2)
     for r in rows:
@@ -124,23 +134,97 @@ def fetch_swpc(session, cfg, seen):
         })
     return out
 
+
+def fetch_volcano(session, cfg, seen):
+    out = []
+    if not cfg['enabled_sources'].get('volcano_feed', False):
+        return out
+    resp = session.get(GVP_WEEKLY_URL, timeout=15)
+    resp.raise_for_status()
+    payload = resp.json()
+
+    # Smithsonian endpoint shape can vary; normalize to a list of candidates
+    candidates = []
+    if isinstance(payload, list):
+        candidates = payload
+    elif isinstance(payload, dict):
+        for key in ['events', 'features', 'data', 'reports', 'volcanoes']:
+            if isinstance(payload.get(key), list):
+                candidates = payload[key]
+                break
+
+    for row in candidates:
+        rid = str(row.get('id') or row.get('volcano_id') or row.get('name') or row.get('title') or '')
+        if not rid:
+            continue
+        eid = f"gvp:{rid}"
+        if eid in seen:
+            continue
+
+        name = row.get('name') or row.get('volcano_name') or row.get('title') or 'Volcano activity'
+        status = str(row.get('alert_level') or row.get('status') or row.get('activity') or 'activity')
+        lat = row.get('latitude') or row.get('lat')
+        lon = row.get('longitude') or row.get('lon')
+
+        try:
+            lat = float(lat) if lat is not None else None
+            lon = float(lon) if lon is not None else None
+        except Exception:
+            lat, lon = None, None
+
+        ok, dist = should_pass_radius(cfg, 'volcano', lat, lon)
+        if not ok:
+            continue
+
+        seen.add(eid)
+        out.append({
+            'event_id': eid,
+            'event_type': 'volcano',
+            'source': 'gvp',
+            'severity': 'high' if 'warning' in status.lower() else 'medium',
+            'title': f"Volcano: {name}",
+            'place': row.get('region') or row.get('location') or name,
+            'happened_at': datetime.now(timezone.utc).isoformat(),
+            'url': 'https://volcano.si.edu/',
+            'lat': lat,
+            'lon': lon,
+            'distance_miles': dist,
+            'summary': f"🌋 Volcano update — {name} ({status})"
+        })
+    return out
+
+
 def main():
     session = requests.Session()
     seen = set(load_json(STATE_PATH, []))
-    last = {'usgs_earthquake': 0, 'swpc_solar': 0}
+    last = {'usgs_earthquake': 0, 'swpc_solar': 0, 'volcano_feed': 0}
 
     while True:
         cfg = load_json(CONFIG_PATH, {})
-        poll = cfg.get('source_poll_seconds', {'usgs_earthquake':15,'swpc_solar':60})
+        poll = cfg.get('source_poll_seconds', {'usgs_earthquake': 15, 'swpc_solar': 60, 'volcano_feed': 60})
         now = time.time()
         events = []
+
         try:
+            eq_events = []
             if now - last['usgs_earthquake'] >= float(poll.get('usgs_earthquake', 15)):
-                events.extend(fetch_usgs(session, cfg, seen))
+                eq_events = fetch_usgs(session, cfg, seen)
+                events.extend(eq_events)
                 last['usgs_earthquake'] = now
+
             if now - last['swpc_solar'] >= float(poll.get('swpc_solar', 60)):
                 events.extend(fetch_swpc(session, cfg, seen))
                 last['swpc_solar'] = now
+
+            # Volcano normal cadence
+            if now - last['volcano_feed'] >= float(poll.get('volcano_feed', 60)):
+                events.extend(fetch_volcano(session, cfg, seen))
+                last['volcano_feed'] = now
+            # Earthquake-triggered volcano immediate check
+            elif eq_events:
+                events.extend(fetch_volcano(session, cfg, seen))
+                last['volcano_feed'] = now
+
         except Exception:
             pass
 
@@ -154,7 +238,8 @@ def main():
                     pass
             save_json(STATE_PATH, list(seen)[-4000:])
 
-        time.sleep(3)
+        time.sleep(2)
+
 
 if __name__ == '__main__':
     main()

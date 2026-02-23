@@ -23,14 +23,15 @@
     "swpc_solar": true,
     "manual_webhook": true,
     "active_shooter_feed": false,
-    "volcano_feed": false,
+    "volcano_feed": true,
     "wildfire_feed": false,
     "hurricane_feed": false,
     "tsunami_feed": false
   },
   "source_poll_seconds": {
     "usgs_earthquake": 15,
-    "swpc_solar": 60
+    "swpc_solar": 60,
+    "volcano_feed": 60
   },
   "relay": {
     "webhook_url": "http://192.168.10.104:5678/webhook/wems-event",

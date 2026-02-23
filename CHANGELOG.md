@@ -5,6 +5,19 @@ All notable changes to the WEMS MCP Server will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.12.0] - 2026-02-23
+
+### Changed
+- Default source cadence tuned for low-latency safety alerting:
+  - `usgs_earthquake`: 15s
+  - `volcano_feed`: 60s
+  - `swpc_solar`: 60s
+- Enabled `volcano_feed` by default.
+- Added earthquake-triggered immediate volcano check in unified relay path.
+
+### Fixed
+- Unified relay config/state paths now point to canonical WEMS repo paths.
+
 ## [1.11.0] - 2026-02-23
 
 ### Added
