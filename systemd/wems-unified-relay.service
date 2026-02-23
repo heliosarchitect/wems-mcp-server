@@ -1,0 +1,16 @@
+[Unit]
+Description=WEMS Unified Near-Real-Time Relay
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/home/bonsaihorn/Projects/wems-mcp-server
+ExecStart=/usr/bin/python3 /home/bonsaihorn/Projects/wems-mcp-server/scripts/wems_unified_relay.py
+Restart=always
+RestartSec=3
+StandardOutput=append:/home/bonsaihorn/Projects/wems-mcp-server/reports/wems_unified_relay.service.log
+StandardError=append:/home/bonsaihorn/Projects/wems-mcp-server/reports/wems_unified_relay.service.log
+
+[Install]
+WantedBy=default.target

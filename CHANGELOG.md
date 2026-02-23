@@ -5,6 +5,16 @@ All notable changes to the WEMS MCP Server will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.10.0] - 2026-02-23
+
+### Added
+- User systemd service unit for unified relay: `systemd/wems-unified-relay.service`.
+- Install helper script: `scripts/install_wems_unified_relay_service.sh`.
+- Operations runbook: `docs/WEMS_ALERTING_RELAY_RUNBOOK.md`.
+
+### Changed
+- Version bump `1.9.0` → `1.10.0` for relay operational hardening.
+
 ## [1.9.0] - 2026-02-23
 
 ### Added
