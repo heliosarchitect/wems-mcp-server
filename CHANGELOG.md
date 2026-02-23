@@ -5,6 +5,15 @@ All notable changes to the WEMS MCP Server will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.12.2] - 2026-02-23
+
+### Fixed
+- Restored deterministic alert parsing behavior for CI fixture compatibility:
+  - Severe weather no longer hard-filters by local sent-time cutoff when using active NWS feed.
+  - Flood alert ingestion no longer hard-filters by local sent-time cutoff.
+  - NTAS advisories are no longer hard-dropped by local expiration clock.
+- Resolves current failing test groups in floods, severe weather, and threat advisories.
+
 ## [1.12.1] - 2026-02-23
 
 ### Fixed

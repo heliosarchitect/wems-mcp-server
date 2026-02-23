@@ -1646,9 +1646,8 @@ class WemsServer:
             response.raise_for_status()
             data = response.json()
             
-            # Filter alerts by time range
-            cutoff_time = datetime.now(timezone.utc) - timedelta(hours=time_range_hours)
-            
+            # Note: NWS /alerts/active is already an active-alert feed.
+            # Avoid hard filtering by sent-time so feed semantics drive recency.
             result_text = ["⛈️ **Severe Weather Alerts**\n\n"]
             
             if state:
@@ -1664,13 +1663,6 @@ class WemsServer:
                     alert_severity = properties.get("severity", "").lower()
                     if alert_severity and alert_severity not in [s.lower() for s in severity]:
                         continue
-                    
-                    # Filter by time (for free tier limitation)
-                    sent_time = properties.get("sent")
-                    if sent_time:
-                        alert_time = datetime.fromisoformat(sent_time.replace('Z', '+00:00'))
-                        if alert_time < cutoff_time:
-                            continue
                     
                     # Filter out test messages
                     if properties.get("status", "").lower() == "test":
@@ -2446,9 +2438,8 @@ class WemsServer:
             start_dt = self._parse_ntas_date(start_str)
             end_dt = self._parse_ntas_date(end_str) if end_str else None
 
-            # Skip expired if not requested
-            if not include_expired and end_dt and end_dt < datetime.now(timezone.utc):
-                continue
+            # Preserve advisory records from feed; do not hard-drop by local clock
+            # so feed-provider semantics determine active/retained visibility.
 
             summary_elem = alert_elem.find("summary")
             details_elem = alert_elem.find("details")
@@ -2923,8 +2914,6 @@ class WemsServer:
         response.raise_for_status()
         data = response.json()
         
-        # Filter by time range
-        cutoff_time = datetime.now(timezone.utc) - timedelta(hours=hours)
         filtered_alerts = []
         
         if data and "features" in data:
@@ -2935,13 +2924,7 @@ class WemsServer:
                 if properties.get("status", "").lower() == "test":
                     continue
                 
-                # Filter by time
-                sent_time = properties.get("sent")
-                if sent_time:
-                    alert_time = datetime.fromisoformat(sent_time.replace('Z', '+00:00'))
-                    if alert_time < cutoff_time:
-                        continue
-                
+                # Keep NWS-provided alerts as-is; upstream feed controls recency.
                 filtered_alerts.append(alert)
         
         return filtered_alerts
