@@ -253,9 +253,19 @@ class WemsServer:
                 "max_age_hours": 36,
             }
         }
+        self.feature_flags = {
+            "multi_source_confidence_fusion": self._env_flag("WEMS_FEATURE_MULTI_SOURCE_CONFIDENCE_FUSION", False)
+        }
         
         # Register MCP tools
         self._register_tools()
+
+    @staticmethod
+    def _env_flag(name: str, default: bool = False) -> bool:
+        value = os.environ.get(name)
+        if value is None:
+            return default
+        return str(value).strip().lower() in {"1", "true", "yes", "on"}
     
     def _load_config(self, config_path: Optional[str] = None) -> Dict[str, Any]:
         """Load configuration from YAML file."""
@@ -742,6 +752,33 @@ class WemsServer:
                         "required": ["alert_type", "config"]
                     }
                 ))
+
+            if self.feature_flags.get("multi_source_confidence_fusion"):
+                tools.append(Tool(
+                    name="fuse_multi_source_incidents",
+                    description="Fuse overlapping USGS/NOAA/NWS/CISA events into canonical confidence-scored incidents (feature-flagged)",
+                    inputSchema={
+                        "type": "object",
+                        "properties": {
+                            "events": {
+                                "type": "array",
+                                "description": "Array of source events. Each event supports: source, event_type, title, timestamp, latitude, longitude, event_id, url",
+                                "items": {"type": "object"}
+                            },
+                            "fusion_window_minutes": {
+                                "type": "number",
+                                "description": "Temporal clustering window",
+                                "default": 30
+                            },
+                            "dedupe_radius_km": {
+                                "type": "number",
+                                "description": "Spatial clustering radius in kilometers",
+                                "default": 25
+                            }
+                        },
+                        "required": ["events"]
+                    }
+                ))
             
             return tools
         
@@ -783,6 +820,10 @@ class WemsServer:
                     if self.tier not in [TIER_PREMIUM, TIER_ENTERPRISE]:
                         return [TextContent(type="text", text=f"🔒 Custom alert configuration requires WEMS Premium.{_upgrade_message('Custom alert thresholds')}")]
                     return await self._configure_alerts(**arguments)
+                elif name == "fuse_multi_source_incidents":
+                    if not self.feature_flags.get("multi_source_confidence_fusion"):
+                        return [TextContent(type="text", text="Feature disabled: set WEMS_FEATURE_MULTI_SOURCE_CONFIDENCE_FUSION=true to enable fusion")]
+                    return await self._fuse_multi_source_incidents(**arguments)
                 else:
                     return [TextContent(type="text", text=f"Unknown tool: {name}")]
             except Exception as e:
@@ -3244,6 +3285,132 @@ class WemsServer:
             return [TextContent(type="text", text=f"❌ Error fetching space weather alerts: {e}")]
         except Exception as e:
             return [TextContent(type="text", text=f"❌ Unexpected error in space weather alerts: {e}")]
+
+
+    # ─── Multi-Source Confidence Fusion (wems-041, feature-flagged) ─────
+
+    @staticmethod
+    def _distance_km(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
+        """Approximate distance between two points (Haversine)."""
+        from math import asin, cos, radians, sin, sqrt
+
+        r_km = 6371.0
+        dlat = radians(lat2 - lat1)
+        dlon = radians(lon2 - lon1)
+        a = sin(dlat / 2) ** 2 + cos(radians(lat1)) * cos(radians(lat2)) * sin(dlon / 2) ** 2
+        c = 2 * asin(sqrt(a))
+        return r_km * c
+
+    @staticmethod
+    def _normalize_source(source: str) -> str:
+        return (source or "").strip().lower()
+
+    def _fuse_events_to_incidents(
+        self,
+        events: List[Dict[str, Any]],
+        fusion_window_minutes: int = 30,
+        dedupe_radius_km: float = 25.0,
+    ) -> List[Dict[str, Any]]:
+        """Cluster co-temporal/co-spatial events and emit confidence-scored incidents."""
+        source_weights = {"usgs": 1.0, "noaa": 0.9, "nws": 0.95, "cisa": 0.85}
+        valid_events: List[Dict[str, Any]] = []
+
+        for ev in events:
+            source = self._normalize_source(str(ev.get("source", "")))
+            if source not in source_weights:
+                continue
+            ts = ev.get("timestamp")
+            lat = ev.get("latitude")
+            lon = ev.get("longitude")
+            if not ts or lat is None or lon is None:
+                continue
+            try:
+                dt = datetime.fromisoformat(str(ts).replace("Z", "+00:00"))
+                if dt.tzinfo is None:
+                    dt = dt.replace(tzinfo=timezone.utc)
+                valid_events.append({**ev, "source": source, "_dt": dt})
+            except Exception:
+                continue
+
+        valid_events.sort(key=lambda x: x["_dt"])
+        clusters: List[List[Dict[str, Any]]] = []
+
+        for ev in valid_events:
+            placed = False
+            for cluster in clusters:
+                ref = cluster[0]
+                age_min = abs((ev["_dt"] - ref["_dt"]).total_seconds()) / 60.0
+                dist_km = self._distance_km(float(ev["latitude"]), float(ev["longitude"]), float(ref["latitude"]), float(ref["longitude"]))
+                if age_min <= fusion_window_minutes and dist_km <= dedupe_radius_km:
+                    cluster.append(ev)
+                    placed = True
+                    break
+            if not placed:
+                clusters.append([ev])
+
+        incidents: List[Dict[str, Any]] = []
+        total_weight = sum(source_weights.values())
+
+        for idx, cluster in enumerate(clusters, start=1):
+            by_source: Dict[str, List[Dict[str, Any]]] = {}
+            for ev in cluster:
+                by_source.setdefault(ev["source"], []).append(ev)
+
+            contribution = {src: source_weights[src] for src in by_source.keys()}
+            score = min(1.0, sum(contribution.values()) / total_weight)
+
+            lat_avg = sum(float(ev["latitude"]) for ev in cluster) / len(cluster)
+            lon_avg = sum(float(ev["longitude"]) for ev in cluster) / len(cluster)
+            times = sorted(ev["_dt"] for ev in cluster)
+
+            incidents.append({
+                "incident_id": f"inc-{times[0].strftime('%Y%m%d%H%M%S')}-{idx}",
+                "event_type": cluster[0].get("event_type") or "unspecified",
+                "title": cluster[0].get("title") or "Fused Incident",
+                "confidence_score": round(score, 4),
+                "confidence_breakdown": contribution,
+                "source_count": len(by_source),
+                "event_count": len(cluster),
+                "fusion_window_minutes": fusion_window_minutes,
+                "dedupe_radius_km": dedupe_radius_km,
+                "location": {"latitude": round(lat_avg, 5), "longitude": round(lon_avg, 5)},
+                "first_seen": times[0].isoformat(),
+                "last_seen": times[-1].isoformat(),
+                "evidence": [
+                    {
+                        "source": ev["source"],
+                        "event_id": ev.get("event_id"),
+                        "title": ev.get("title"),
+                        "timestamp": ev.get("timestamp"),
+                        "url": ev.get("url"),
+                    }
+                    for ev in cluster
+                ],
+            })
+
+        incidents.sort(key=lambda x: x["confidence_score"], reverse=True)
+        return incidents
+
+    async def _fuse_multi_source_incidents(
+        self,
+        events: List[Dict[str, Any]],
+        fusion_window_minutes: int = 30,
+        dedupe_radius_km: float = 25.0,
+    ) -> List[TextContent]:
+        incidents = self._fuse_events_to_incidents(
+            events=events,
+            fusion_window_minutes=int(fusion_window_minutes),
+            dedupe_radius_km=float(dedupe_radius_km),
+        )
+
+        payload = {
+            "feature": "wems-041-multi-source-confidence-fusion",
+            "flag": "WEMS_FEATURE_MULTI_SOURCE_CONFIDENCE_FUSION",
+            "input_event_count": len(events or []),
+            "incident_count": len(incidents),
+            "incidents": incidents,
+        }
+        return [TextContent(type="text", text=json.dumps(payload, indent=2))]
 
 
     # ─── Drought Monitoring ──────────────────────────────────────────────

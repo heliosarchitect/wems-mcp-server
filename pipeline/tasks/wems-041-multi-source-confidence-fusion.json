@@ -1,0 +1,21 @@
+{
+  "task_number": 41,
+  "task_id": "wems-041-multi-source-confidence-fusion",
+  "title": "Multi-source confidence fusion",
+  "description": "Blend overlapping events from USGS/NOAA/NWS/CISA into one confidence-scored incident object.",
+  "variables": {
+    "sources": ["usgs", "noaa", "nws", "cisa"],
+    "fusion_window_minutes": 30,
+    "confidence_weights": {
+      "usgs": 1.0,
+      "noaa": 0.9,
+      "nws": 0.95,
+      "cisa": 0.85
+    },
+    "dedupe_radius_km": 25
+  },
+  "pipeline": {
+    "stages": ["requirements", "design", "document", "build", "security", "test", "deploy"],
+    "status": "completed"
+  }
+}

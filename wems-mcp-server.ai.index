@@ -7,6 +7,7 @@
 # Validator: ci/validate-ai-index.sh (from lbf-templates)
 
 ## Features (by version)
+# v1.8.1: Multi-source confidence fusion (feature-flagged) | GREP: grep "fuse_multi_source_incidents" wems_mcp_server.py
 # v1.7.3: Space weather alerts → wems_mcp_server.py:1 — NOAA SWPC, drought monitoring, 31/31 queries verified
 # v1.5.3: MCP Registry validation → server.json:1 — Schema compliance, PyPI publishing automation
 # v1.5.2: Production deployment verification | GREP: grep "test.*11.*tools" tests/
@@ -48,6 +49,8 @@
 # [fn] check_threat_advisories → wems_mcp_server.py:1400 — DHS/State Dept/CISA threat monitoring
 # [fn] check_space_weather_alerts → wems_mcp_server.py:1500 — NOAA SWPC alert monitoring
 # [fn] check_drought_status → wems_mcp_server.py:1600 — US Drought Monitor status tracking
+# [fn] fuse_multi_source_incidents | GREP: grep "def _fuse_multi_source_incidents" wems_mcp_server.py
+# [fn] fusion_engine | GREP: grep "def _fuse_events_to_incidents" wems_mcp_server.py
 
 ## Constants / Config
 # [const] TIER_FREE → wems_mcp_server.py:25 — Free tier access level
@@ -74,6 +77,7 @@
 # [test] SevereWeatherTest → tests/test_severe_weather.py:1 — NWS alerts API validation
 # [test] FloodTest → tests/test_floods.py:1 — USGS river gauge API validation
 # [test] SpaceWeatherTest → tests/test_space_weather_alerts.py:1 — NOAA SWPC alerts validation
+# [test] ConfidenceFusionTest → tests/test_confidence_fusion.py:1 — Multi-source event clustering and confidence scoring
 
 ## Behavioral Markers
 # [marker] WEMS_SERVER_SIZE: >100KB indicates full implementation | GREP: du -sh wems_mcp_server.py

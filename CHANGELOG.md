@@ -5,6 +5,22 @@ All notable changes to the WEMS MCP Server will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.8.1] - 2026-02-22
+
+### Added
+- **Feature Flagged Tool**: `fuse_multi_source_incidents` for multi-source confidence fusion (wems-041).
+- New fusion engine to cluster co-temporal/co-spatial events and emit canonical incident objects.
+- Confidence scoring with weighted source breakdown across USGS/NOAA/NWS/CISA.
+- Preservation of source evidence (IDs, URLs, timestamps) in fused output.
+
+### Changed
+- Added environment feature flag parser and flag registry in server init:
+  - `WEMS_FEATURE_MULTI_SOURCE_CONFIDENCE_FUSION` (default: disabled)
+
+### Tests
+- Added targeted test suite: `tests/test_confidence_fusion.py`.
+- Full project test suite executed successfully.
+
 ## [1.3.0] - 2026-02-13
 
 ### Added

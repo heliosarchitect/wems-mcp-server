@@ -1,7 +1,7 @@
 # WEMS MCP Server — AI Version Register
-CURRENT VERSION: 1.7.3
+CURRENT VERSION: 1.8.1
 ## Active Features
-FEATURE: World Event Monitoring System MCP Server (v1.7.3)
+FEATURE: World Event Monitoring System MCP Server (v1.8.1)
   SIGNATURE: "wems_mcp_server.py" with 11 MCP tools monitoring natural hazards
   FAILURE MODE: API rate limiting from government sources, network timeouts on remote endpoints
   ROLLBACK: Disable specific monitoring tools, use cached responses, implement exponential backoff
@@ -31,6 +31,11 @@ FEATURE: Geographic Filtering (v1.1.0)
   FAILURE MODE: Incorrect geographic parsing, coordinate system mismatches
   ROLLBACK: Global monitoring only, remove location-based filtering
 
+FEATURE: Multi-Source Confidence Fusion (v1.8.1, feature-flagged)
+  SIGNATURE: fuse_multi_source_incidents + _fuse_events_to_incidents with weighted confidence scoring
+  FAILURE MODE: Over-clustering unrelated events in dense windows
+  ROLLBACK: Disable WEMS_FEATURE_MULTI_SOURCE_CONFIDENCE_FUSION to hide tool and bypass fusion path
+
 ## Known Bugs
 BUG: Hurricane forecast track data inconsistent
   SYMPTOMS: Some storms missing forecast cone data from NHC feeds
@@ -45,6 +50,7 @@ BUG: Air quality station coordinate precision
   WORKAROUND: Use city-level fallback when coordinates insufficient
 
 ## Bug Fix History
+2026-02-22 (v1.8.1): Added feature-flagged multi-source confidence fusion (wems-041) with weighted source contribution and evidence preservation.
 2026-02-13: Fixed complete flood test mocking for USGS river gauge data
 2026-02-13: Fixed NWS flood alerts mocking in flood watch test cases
 2026-02-12: Added space weather alerts and drought monitoring tools

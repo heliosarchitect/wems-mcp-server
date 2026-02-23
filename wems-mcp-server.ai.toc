@@ -25,6 +25,7 @@
 
 ## Configuration & Management
 - configure_alerts — Alert threshold configuration and webhook endpoint management
+- fuse_multi_source_incidents — Feature-flagged canonical incident fusion with confidence scoring (wems-041)
 
 ## Data Sources Integration
 ### Government APIs (No Keys Required)
