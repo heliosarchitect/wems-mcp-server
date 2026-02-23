@@ -6,7 +6,7 @@
   },
   "pricing": {
     "currency": "usd",
-    "free_calls_per_month": 5000,
+    "free_calls_per_rolling_30d": 5000,
     "tiers": [
       {
         "up_to_calls": 100000,

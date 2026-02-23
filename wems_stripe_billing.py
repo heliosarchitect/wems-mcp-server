@@ -37,19 +37,21 @@ def _resolve_customer_id(tenant_key: str, cfg: dict) -> Optional[str]:
     return cfg.get("default_customer_id")
 
 
-def estimate_monthly_cost(total_calls: int, cfg: Optional[Dict[str, Any]] = None) -> float:
-    """Estimate monthly cost from pricing tiers in config.
+def estimate_monthly_cost(total_calls_rolling_30d: int, cfg: Optional[Dict[str, Any]] = None) -> float:
+    """Estimate cost from pricing tiers using a rolling 30-day window.
 
     Pricing model:
-    - free_calls_per_month deducted first
+    - free_calls_per_rolling_30d deducted first (fallback: free_calls_per_month)
     - tiered per-call rates applied progressively
     """
     cfg = cfg or _load_cfg()
     pricing = cfg.get("pricing", {}) if isinstance(cfg, dict) else {}
-    free_calls = int(pricing.get("free_calls_per_month", 0) or 0)
+    free_calls = int(
+        pricing.get("free_calls_per_rolling_30d", pricing.get("free_calls_per_month", 0)) or 0
+    )
     tiers = pricing.get("tiers", []) or []
 
-    billable = max(0, int(total_calls) - free_calls)
+    billable = max(0, int(total_calls_rolling_30d) - free_calls)
     if billable <= 0 or not tiers:
         return 0.0
 

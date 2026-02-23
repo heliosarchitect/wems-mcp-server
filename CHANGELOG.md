@@ -5,6 +5,13 @@ All notable changes to the WEMS MCP Server will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.13.2] - 2026-02-23
+
+### Changed
+- Free tier billing window updated to **rolling 30-day** semantics.
+- Billing config key updated to `pricing.free_calls_per_rolling_30d` (with backward-compatible fallback to `free_calls_per_month`).
+- Cost estimator now uses rolling-window input: `estimate_monthly_cost(total_calls_rolling_30d)`.
+
 ## [1.13.1] - 2026-02-23
 
 ### Changed
