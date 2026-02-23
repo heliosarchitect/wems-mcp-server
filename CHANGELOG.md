@@ -5,6 +5,18 @@ All notable changes to the WEMS MCP Server will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.9.0] - 2026-02-23
+
+### Added
+- **Near-real-time unified alerting integration assets** moved into WEMS canonical repo:
+  - `scripts/wems_unified_relay.py` (adapter relay daemon)
+  - `config/wems_alert_config.json` (user-configurable radii + thresholds)
+  - `integrations/n8n/workflows/wems_unified_ingest_v2_6_0.json` (unified webhook ingest)
+- User-configurable per-threat radii defaults (including active shooter and volcano examples).
+
+### Changed
+- Canonical ownership of WEMS alerting integration moved from cross-project pipeline workspace into `wems-mcp-server`.
+
 ## [1.8.1] - 2026-02-22
 
 ### Added

@@ -1,0 +1,39 @@
+{
+  "profile": "default",
+  "home": {
+    "lat": 34.0007,
+    "lon": -81.0348
+  },
+  "thresholds": {
+    "earthquake_min_mag": 5.0,
+    "solar_min_severity": "medium"
+  },
+  "radii_miles": {
+    "active_shooter": 1,
+    "earthquake": 150,
+    "volcano": 100,
+    "wildfire": 50,
+    "hurricane": 200,
+    "tsunami": 200,
+    "severe_weather": 30,
+    "terror": 25
+  },
+  "enabled_sources": {
+    "usgs_earthquake": true,
+    "swpc_solar": true,
+    "manual_webhook": true,
+    "active_shooter_feed": false,
+    "volcano_feed": false,
+    "wildfire_feed": false,
+    "hurricane_feed": false,
+    "tsunami_feed": false
+  },
+  "source_poll_seconds": {
+    "usgs_earthquake": 15,
+    "swpc_solar": 60
+  },
+  "relay": {
+    "webhook_url": "http://192.168.10.104:5678/webhook/wems-event",
+    "timeout_seconds": 10
+  }
+}

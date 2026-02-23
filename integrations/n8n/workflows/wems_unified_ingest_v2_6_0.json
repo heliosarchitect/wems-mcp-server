@@ -1,0 +1,67 @@
+{
+  "name": "WEMS Unified Ingest (v2.6.0)",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "wems-event",
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "webhook-in",
+      "name": "WEMS Webhook In",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [260, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const e = $json.body ?? $json;\nconst sev = (e.severity || 'medium').toUpperCase();\nconst distance = e.distance_miles != null ? `\\nDistance: ${e.distance_miles} mi` : '';\nconst mag = e.magnitude != null ? ` M${Number(e.magnitude).toFixed(1)}` : '';\nconst title = e.title || `${e.event_type || 'event'} alert`;\nconst msg = `🚨 WEMS ${sev}\\n${title}${mag}${distance}\\nSource: ${e.source || 'unknown'}\\nTime: ${e.happened_at || new Date().toISOString()}\\n${e.url || ''}`;\nreturn [{json:{...e, alert_message: msg}}];"
+      },
+      "id": "format-alert",
+      "name": "Format Alert",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [560, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://gitea.fleet.wood/api/v1/repos/Helios/pipeline-v2/issues/2/comments",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "token __GITEA_TOKEN__"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={ \"body\": $json.alert_message }",
+        "options": {
+          "timeout": 10000
+        }
+      },
+      "id": "post-tracker",
+      "name": "Post to Tracker",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [860, 300]
+    }
+  ],
+  "connections": {
+    "WEMS Webhook In": {
+      "main": [[{ "node": "Format Alert", "type": "main", "index": 0 }]]
+    },
+    "Format Alert": {
+      "main": [[{ "node": "Post to Tracker", "type": "main", "index": 0 }]]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "active": false,
+  "tags": ["wems", "alerts", "unified", "pipeline-v2"]
+}
