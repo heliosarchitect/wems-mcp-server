@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "wems-mcp-server"
-version = "1.12.0"
+version = "1.12.1"
 authors = [
     {name = "Helios", email = "heliosarchitectlbf@gmail.com"}
 ]
@@ -72,7 +72,7 @@ dev = [
 ]
 
 [tool.setuptools]
-py-modules = ["wems_mcp_server"]
+py-modules = ["wems_mcp_server", "wems_rate_limit", "wems_usage", "wems_license"]
 
 [tool.setuptools.packages.find]
 where = ["."]

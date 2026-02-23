@@ -5,6 +5,16 @@ All notable changes to the WEMS MCP Server will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.12.1] - 2026-02-23
+
+### Fixed
+- Restored missing runtime modules required by imports:
+  - `wems_rate_limit.py`
+  - `wems_usage.py`
+  - `wems_license.py`
+- Updated setuptools module packaging so these files ship in builds/wheels.
+- Fixes CI/PyPI publish failure (`ModuleNotFoundError: wems_rate_limit`).
+
 ## [1.12.0] - 2026-02-23
 
 ### Changed
