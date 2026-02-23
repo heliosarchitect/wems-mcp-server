@@ -4,6 +4,23 @@
   "api_key_to_customer": {
     "example-wems-api-key": "cus_123456789"
   },
+  "billing_units": {
+    "default": 1,
+    "by_tool": {
+      "check_earthquakes": 1,
+      "check_solar": 1,
+      "check_volcanoes": 1,
+      "check_tsunamis": 1,
+      "check_hurricanes": 1,
+      "check_wildfires": 1,
+      "check_severe_weather": 1,
+      "check_floods": 1,
+      "check_air_quality": 1,
+      "check_threat_advisories": 1,
+      "check_space_weather_alerts": 2,
+      "fuse_multi_source_incidents": 3
+    }
+  },
   "pricing": {
     "currency": "usd",
     "free_calls_per_rolling_30d": 5000,

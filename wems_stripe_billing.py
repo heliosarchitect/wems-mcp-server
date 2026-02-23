@@ -79,6 +79,20 @@ def estimate_monthly_cost(total_calls_rolling_30d: int, cfg: Optional[Dict[str, 
     return round(cost, 6)
 
 
+def units_for_tool(tool_name: str, cfg: Optional[Dict[str, Any]] = None) -> int:
+    """Resolve billable units for a tool (accessory weighting).
+
+    Config shape:
+      billing_units.default
+      billing_units.by_tool.{tool_name}
+    """
+    cfg = cfg or _load_cfg()
+    bu = cfg.get("billing_units", {}) if isinstance(cfg, dict) else {}
+    default_units = int(bu.get("default", 1) or 1)
+    by_tool = bu.get("by_tool", {}) if isinstance(bu, dict) else {}
+    return max(1, int(by_tool.get(tool_name, default_units) or default_units))
+
+
 def emit_meter_event(tenant_key: str, tool_name: str, units: int = 1) -> bool:
     """Emit a Stripe meter event.
 

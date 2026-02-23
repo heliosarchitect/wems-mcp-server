@@ -24,7 +24,7 @@ from mcp.types import Tool, TextContent
 # WEMS licensing and rate limiting
 from wems_rate_limit import check_rate_limit, get_limit_display
 from wems_usage import record_api_call
-from wems_stripe_billing import emit_meter_event
+from wems_stripe_billing import emit_meter_event, units_for_tool
 
 
 # ─── Tier Definitions ────────────────────────────────────────────────────────
@@ -317,7 +317,8 @@ class WemsServer:
 
             # Best-effort Stripe metering (never blocks request path).
             try:
-                emit_meter_event(self.api_key if self.api_key else "anonymous", tool_name, units=1)
+                units = units_for_tool(tool_name)
+                emit_meter_event(self.api_key if self.api_key else "anonymous", tool_name, units=units)
             except Exception:
                 pass
             

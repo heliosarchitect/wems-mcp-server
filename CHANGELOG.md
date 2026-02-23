@@ -5,6 +5,19 @@ All notable changes to the WEMS MCP Server will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.13.3] - 2026-02-23
+
+### Added
+- Accessory/weighted call billing units via `billing_units` config.
+- `units_for_tool(tool_name)` helper to map tool calls to billable units.
+
+### Changed
+- Stripe meter emission now uses per-tool units instead of constant `1`.
+- Added default weights in `config/wems_stripe_billing.json`:
+  - most checks = 1 unit
+  - `check_space_weather_alerts` = 2 units
+  - `fuse_multi_source_incidents` = 3 units
+
 ## [1.13.2] - 2026-02-23
 
 ### Changed
