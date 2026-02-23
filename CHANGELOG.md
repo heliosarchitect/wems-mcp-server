@@ -5,6 +5,21 @@ All notable changes to the WEMS MCP Server will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.12.3] - 2026-02-23
+
+### Fixed
+- Fixed packaged console script entrypoint by using a synchronous `main()` wrapper that executes async runtime via `asyncio.run(...)`.
+- Added minimal `--help` / `-h` handling for `wems` CLI to prevent coroutine warnings and provide usable output.
+
+### Packaging
+- Included operational relay assets in PyPI artifact via setuptools data-files:
+  - `config/wems_alert_config.json`
+  - `scripts/setup_wems_alerting_ai.sh`
+  - `scripts/install_wems_unified_relay_service.sh`
+  - `scripts/wems_unified_relay.py`
+  - `systemd/wems-unified-relay.service`
+  - `docs/WEMS_ALERTING_RELAY_RUNBOOK.md`
+
 ## [1.12.2] - 2026-02-23
 
 ### Fixed

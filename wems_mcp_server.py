@@ -3585,13 +3585,28 @@ class WemsServer:
         await self.http_client.aclose()
 
 
-async def main():
-    """Main entry point."""
-    config_path = sys.argv[1] if len(sys.argv) > 1 else None
-    
+async def _amain():
+    """Async main entry point."""
+    config_path = None
+
+    # Minimal CLI handling for packaged script usability.
+    if len(sys.argv) > 1:
+        arg1 = sys.argv[1]
+        if arg1 in {"-h", "--help"}:
+            print("WEMS MCP Server")
+            print("Usage: wems [config.yaml]")
+            print("Runs MCP stdio server for hazard monitoring.")
+            return
+        config_path = arg1
+
     async with WemsServer(config_path) as server:
         await server.run()
 
 
+def main():
+    """Sync console entrypoint for setuptools scripts."""
+    asyncio.run(_amain())
+
+
 if __name__ == "__main__":
-    asyncio.run(main())
+    main()

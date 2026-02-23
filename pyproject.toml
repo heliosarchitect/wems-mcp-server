@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "wems-mcp-server"
-version = "1.12.2"
+version = "1.12.3"
 authors = [
     {name = "Helios", email = "heliosarchitectlbf@gmail.com"}
 ]
@@ -80,6 +80,12 @@ include = ["wems*"]
 
 [tool.setuptools.package-data]
 "*" = ["*.yaml", "*.yml", "*.md", "*.txt", "*.json"]
+
+[tool.setuptools.data-files]
+"share/wems/config" = ["config/wems_alert_config.json"]
+"share/wems/scripts" = ["scripts/setup_wems_alerting_ai.sh", "scripts/install_wems_unified_relay_service.sh", "scripts/wems_unified_relay.py"]
+"share/wems/systemd" = ["systemd/wems-unified-relay.service"]
+"share/wems/docs" = ["docs/WEMS_ALERTING_RELAY_RUNBOOK.md"]
 
 [tool.black]
 line-length = 88
