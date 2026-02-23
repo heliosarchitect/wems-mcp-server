@@ -5,6 +5,16 @@ All notable changes to the WEMS MCP Server will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.13.1] - 2026-02-23
+
+### Changed
+- Added affordable default pricing tiers to Stripe billing config (`config/wems_stripe_billing.json`):
+  - Free: 5,000 calls/month
+  - Up to 100,000 calls: $0.0010/call
+  - 100,001–500,000 calls: $0.0008/call
+  - 500,001+ calls: $0.0006/call
+- Added `estimate_monthly_cost(total_calls)` helper in `wems_stripe_billing.py` for deterministic tier-cost previews.
+
 ## [1.13.0] - 2026-02-23
 
 ### Added

@@ -10,7 +10,7 @@ import os
 import urllib.parse
 import urllib.request
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Dict, Any
 
 
 def _load_cfg() -> dict:
@@ -35,6 +35,46 @@ def _resolve_customer_id(tenant_key: str, cfg: dict) -> Optional[str]:
     if isinstance(tenant_key, str) and tenant_key.startswith("cus_"):
         return tenant_key
     return cfg.get("default_customer_id")
+
+
+def estimate_monthly_cost(total_calls: int, cfg: Optional[Dict[str, Any]] = None) -> float:
+    """Estimate monthly cost from pricing tiers in config.
+
+    Pricing model:
+    - free_calls_per_month deducted first
+    - tiered per-call rates applied progressively
+    """
+    cfg = cfg or _load_cfg()
+    pricing = cfg.get("pricing", {}) if isinstance(cfg, dict) else {}
+    free_calls = int(pricing.get("free_calls_per_month", 0) or 0)
+    tiers = pricing.get("tiers", []) or []
+
+    billable = max(0, int(total_calls) - free_calls)
+    if billable <= 0 or not tiers:
+        return 0.0
+
+    remaining = billable
+    prior_cap = 0
+    cost = 0.0
+
+    for tier in tiers:
+        up_to = tier.get("up_to_calls")
+        rate = float(tier.get("rate_per_call", 0.0) or 0.0)
+        if up_to is None:
+            cost += remaining * rate
+            remaining = 0
+            break
+
+        cap = int(up_to)
+        tier_size = max(0, cap - prior_cap)
+        used = min(remaining, tier_size)
+        cost += used * rate
+        remaining -= used
+        prior_cap = cap
+        if remaining <= 0:
+            break
+
+    return round(cost, 6)
 
 
 def emit_meter_event(tenant_key: str, tool_name: str, units: int = 1) -> bool:

@@ -3,5 +3,23 @@
   "default_customer_id": null,
   "api_key_to_customer": {
     "example-wems-api-key": "cus_123456789"
+  },
+  "pricing": {
+    "currency": "usd",
+    "free_calls_per_month": 5000,
+    "tiers": [
+      {
+        "up_to_calls": 100000,
+        "rate_per_call": 0.001
+      },
+      {
+        "up_to_calls": 500000,
+        "rate_per_call": 0.0008
+      },
+      {
+        "up_to_calls": null,
+        "rate_per_call": 0.0006
+      }
+    ]
   }
 }
