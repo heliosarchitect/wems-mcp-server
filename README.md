@@ -68,6 +68,17 @@ print(asyncio.run(check_earthquakes(min_magnitude=6.0)))
 "
 ```
 
+### One-command AI Alerting Setup (Relay + n8n)
+
+```bash
+bash scripts/setup_wems_alerting_ai.sh
+```
+
+This will:
+- install/start `wems-unified-relay.service`
+- upsert and activate the unified n8n ingest workflow
+- wire tracker posting credentials automatically
+
 ### Example Output
 
 ```json
