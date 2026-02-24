@@ -5,6 +5,26 @@ All notable changes to the WEMS MCP Server will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.13.8] - 2026-02-24
+
+### Fixed
+- `configure_alerts` now supports all implemented hazard families (earthquake, solar, volcano, tsunami, hurricane, wildfire, severe_weather, floods, air_quality, threat_advisories, space_weather_alerts, drought_status).
+- Alert config schema enum expanded to full supported set.
+- Default config bootstrap now includes alert buckets for all hazard families.
+- Added regression coverage in `tests/test_configure_alerts.py` for newly supported alert types.
+
+## [1.13.7] - 2026-02-23
+
+### Added
+- Trial lifecycle conversion hooks (`wems_trial_messaging.py`) for day-3/day-10/day-13 touchpoints.
+- New safe-default config: `config/wems_trial_messaging.json`.
+- Quiet-hours guard and per-tenant dedupe state for lifecycle messaging.
+- Test coverage for touchpoint dispatch, quiet-hours suppression, and disabled-default behavior (`tests/test_trial_messaging.py`).
+
+### Changed
+- Wired best-effort trial lifecycle hook emission into successful tool-call path (non-blocking).
+- Updated docs with lifecycle hook configuration and env toggles.
+
 ## [1.13.6] - 2026-02-23
 
 ### Changed
