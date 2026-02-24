@@ -86,11 +86,24 @@ def fetch_usgs(session, cfg, seen):
         if not ok:
             continue
         seen.add(eid)
+        if mag >= 8.0:
+            severity = 'critical'
+            summary = f"🟥 EXTREME EARTHQUAKE ALERT M{mag:.1f} — {p.get('place', 'unknown')}"
+        elif mag >= 7.0:
+            severity = 'high'
+            summary = f"🚨 MAJOR EARTHQUAKE ALERT M{mag:.1f} — {p.get('place', 'unknown')}"
+        elif mag >= 6.5:
+            severity = 'high'
+            summary = f"🚨 Earthquake M{mag:.1f} — {p.get('place', 'unknown')}"
+        else:
+            severity = 'medium'
+            summary = f"🌎 Earthquake M{mag:.1f} — {p.get('place', 'unknown')}"
+
         out.append({
             'event_id': eid,
             'event_type': 'earthquake',
             'source': 'usgs',
-            'severity': 'high' if mag >= 6.5 else 'medium',
+            'severity': severity,
             'magnitude': mag,
             'title': p.get('title') or f"M{mag:.1f} earthquake",
             'place': p.get('place'),
@@ -99,7 +112,7 @@ def fetch_usgs(session, cfg, seen):
             'lat': lat,
             'lon': lon,
             'distance_miles': dist,
-            'summary': f"🚨 Earthquake M{mag:.1f} — {p.get('place', 'unknown')}"
+            'summary': summary
         })
     return out
 

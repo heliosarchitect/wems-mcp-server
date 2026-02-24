@@ -5,6 +5,14 @@ All notable changes to the WEMS MCP Server will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.13.9] - 2026-02-24
+
+### Changed
+- Earthquake relay summaries now use escalation tiers:
+  - M7.0+ → `🚨 MAJOR EARTHQUAKE ALERT`
+  - M8.0+ → `🟥 EXTREME EARTHQUAKE ALERT`
+- Added structured severity mapping (`medium`/`high`/`critical`) in unified relay payload for stronger downstream alert routing.
+
 ## [1.13.8] - 2026-02-24
 
 ### Fixed
