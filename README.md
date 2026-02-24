@@ -242,6 +242,11 @@ Key fields:
 - `pricing.free_calls_per_rolling_30d`
 - `pricing.tiers[]`
 
+### Stripe key source
+1. `STRIPE_API_KEY` or `STRIPE_SECRET_KEY` (direct env)
+
+WEMS uses best-effort lookup and never blocks alerting if billing key resolution fails.
+
 ---
 
 **Built with ❤️ for the AI community by Helios** 🌞

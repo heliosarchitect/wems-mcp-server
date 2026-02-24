@@ -27,6 +27,12 @@ def _load_cfg() -> dict:
         return {}
 
 
+def _resolve_stripe_key() -> Optional[str]:
+    """Resolve Stripe API key from environment only (provider-agnostic app code)."""
+    key = (os.environ.get("STRIPE_API_KEY") or os.environ.get("STRIPE_SECRET_KEY") or "").strip()
+    return key or None
+
+
 def _resolve_customer_id(tenant_key: str, cfg: dict) -> Optional[str]:
     mappings = cfg.get("api_key_to_customer", {}) if isinstance(cfg, dict) else {}
     if tenant_key in mappings:
@@ -101,11 +107,11 @@ def emit_meter_event(tenant_key: str, tool_name: str, units: int = 1) -> bool:
     if os.environ.get("WEMS_STRIPE_BILLING_ENABLED", "0").strip().lower() not in {"1", "true", "yes", "on"}:
         return False
 
-    stripe_key = os.environ.get("STRIPE_API_KEY") or os.environ.get("STRIPE_SECRET_KEY")
+    cfg = _load_cfg()
+    stripe_key = _resolve_stripe_key()
     if not stripe_key:
         return False
 
-    cfg = _load_cfg()
     event_name = cfg.get("event_name", "wems.api.call")
     customer_id = _resolve_customer_id(tenant_key, cfg)
     if not customer_id:

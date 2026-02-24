@@ -5,6 +5,16 @@ All notable changes to the WEMS MCP Server will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.13.6] - 2026-02-23
+
+### Changed
+- Removed provider-specific 1Password (`op://`) key resolution from application code.
+- Stripe billing now reads keys from standard env vars only: `STRIPE_API_KEY` / `STRIPE_SECRET_KEY`.
+- Keeps app layer provider-agnostic; secret manager integration is runtime/deployment responsibility.
+
+### Docs
+- Removed 1Password-specific billing config/runtime examples from README.
+
 ## [1.13.4] - 2026-02-23
 
 ### Fixed
