@@ -98,21 +98,22 @@ This will:
 
 ## MCP Tools
 
-| Tool | Description | Version |
-|------|-------------|---------|
-| `check_earthquakes` | Query recent earthquake activity | 1.0.0 |
-| `check_solar` | Monitor space weather (K-index, flares, CMEs) | 1.0.0 |
-| `check_volcanoes` | Track volcanic activity alerts | 1.0.0 |
-| `check_tsunamis` | Monitor tsunami warnings | 1.0.0 |
-| `check_hurricanes` | Track tropical cyclones & forecast tracks | 1.1.0 |
-| `check_wildfires` | Fire weather alerts & active perimeters | 1.1.0 |
-| `check_severe_weather` | Monitor tornadoes, thunderstorms, flash floods | 1.2.0 |
-| `check_floods` | Flood warnings & USGS river gauge data | 1.3.0 |
-| `check_air_quality` | AQI monitoring with pollutant data | 1.4.0 |
-| `check_threat_advisories` | Terrorism, travel risk & cyber threat monitoring | 1.5.0 |
-| `check_space_weather_alerts` | Active space weather alerts & warnings from NOAA SWPC | 1.7.3 |
-| `check_drought_status` | US state drought conditions with D0-D4 levels (Premium) | 1.7.3 |
-| `configure_alerts` | Update alert thresholds and webhooks | 1.0.0 |
+| Tool | Description |
+|------|-------------|
+| `check_earthquakes` | Query recent earthquake activity |
+| `check_solar` | Monitor space weather (K-index, flares, CMEs) |
+| `check_volcanoes` | Track volcanic activity alerts |
+| `check_tsunamis` | Monitor tsunami warnings |
+| `check_hurricanes` | Track tropical cyclones & forecast tracks |
+| `check_wildfires` | Fire weather alerts & active perimeters |
+| `check_severe_weather` | Monitor tornadoes, thunderstorms, flash floods |
+| `check_floods` | Flood warnings & USGS river gauge data |
+| `check_air_quality` | AQI monitoring with pollutant data |
+| `check_threat_advisories` | Terrorism, travel risk & cyber threat monitoring |
+| `check_space_weather_alerts` | Active space weather alerts & warnings from NOAA SWPC |
+| `check_drought_status` | US state drought conditions with D0-D4 levels (Premium) |
+| `configure_alerts` | Update alert thresholds and webhooks |
+| `fuse_multi_source_incidents` | Multi-source incident fusion (feature-flagged) |
 
 ## Configuration
 
@@ -215,20 +216,31 @@ curl -X POST https://your-monitoring.com/api/events \
   -d "$(python -c 'import wems; print(wems.get_recent_earthquakes())')"
 ```
 
-## 🗺️ Roadmap
+## 💳 Billing & Monetization (Current)
 
-| Version | Feature | Data Source | Status |
-|---------|---------|-------------|--------|
-| ~~1.0.0~~ | 🌊 Earthquakes, ☀️ Solar, 🌋 Volcanoes, 🌊 Tsunamis | USGS, NOAA, Smithsonian | ✅ Shipped |
-| ~~1.1.0~~ | 🌀 Hurricanes, 🔥 Wildfires | NHC, NWS, NIFC | ✅ Shipped |
-| ~~1.2.0~~ | ⛈️ Severe Weather (tornadoes, thunderstorms, flash floods) | NWS Alerts API | ✅ Shipped |
-| ~~1.3.0~~ | 🌊 Floods (river gauges, flood warnings) | USGS Water Services + NOAA | ✅ Shipped |
-| ~~1.4.0~~ | 💨 Air Quality (AQI, smoke, pollution) | OpenAQ | ✅ Shipped |
-| ~~1.5.0~~ | 🛡️ Threat Advisories (terrorism, travel risk, cyber) | DHS NTAS, State Dept, CISA | ✅ Shipped |
+WEMS now includes Stripe metering scaffolding and affordable default pricing.
 
-All data sources are **free, public, and require no API keys**. Zero-config by design.
+### Current pricing defaults
+- Free tier: **5,000 calls per rolling 30 days**
+- 0–100,000 calls: **$0.0010/call**
+- 100,001–500,000 calls: **$0.0008/call**
+- 500,001+ calls: **$0.0006/call**
 
-> 🎉 **Roadmap Complete!** WEMS v1.5.0 delivers the full vision: 11 monitoring tools covering natural hazards, environmental quality, and security threats — all from authoritative government sources with zero configuration.
+### Accessory call weights (default)
+- Most tools: `1` unit
+- `check_space_weather_alerts`: `2` units
+- `fuse_multi_source_incidents`: `3` units
+
+### Billing config
+See: `config/wems_stripe_billing.json`
+
+Key fields:
+- `event_name`
+- `api_key_to_customer`
+- `billing_units.default`
+- `billing_units.by_tool`
+- `pricing.free_calls_per_rolling_30d`
+- `pricing.tiers[]`
 
 ---
 

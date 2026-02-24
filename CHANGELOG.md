@@ -5,6 +5,13 @@ All notable changes to the WEMS MCP Server will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.13.4] - 2026-02-23
+
+### Fixed
+- Updated `README.md` to reflect current shipping features and monetization state for GitHub and PyPI.
+- Removed stale per-tool version column and outdated roadmap-complete messaging.
+- Added current billing defaults, rolling 30-day free window, and accessory unit weighting documentation.
+
 ## [1.13.3] - 2026-02-23
 
 ### Added
