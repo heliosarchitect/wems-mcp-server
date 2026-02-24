@@ -440,10 +440,10 @@
                 </p>
                 
                 <div class="hero-badges">
-                    <span class="badge">🌋 4 Data Sources</span>
+                    <span class="badge">🌋 12 Hazard/Advisory Feeds</span>
                     <span class="badge">⚡ Real-time</span>
                     <span class="badge">🔔 Smart Alerts</span>
-                    <span class="badge">🐳 Docker Ready</span>
+                    <span class="badge">✅ QA-Gated Deploy</span>
                 </div>
                 
                 <div class="cta-buttons">
@@ -589,12 +589,32 @@
                         <li>99.9% uptime SLA</li>
                     </ul>
                     
-                    <a href="mailto:heliosarchitectlbf@gmail.com?subject=WEMS Pro Interest" class="btn btn-primary">Contact Sales</a>
+                    <a href="https://wems.dev/checkout/pro" class="btn btn-primary">Start Pro</a>
                 </div>
             </div>
             
             <div style="text-align: center; margin-top: 2rem; color: var(--text-secondary);">
-                <p>💡 <strong>Pro tier coming soon!</strong> Email us to be notified when it's available.</p>
+                <p>Already a customer? <a href="https://wems.dev/billing/portal">Manage billing in customer portal</a>.</p>
+                <p style="margin-top: 0.5rem;">Need enterprise terms? <a href="mailto:heliosarchitectlbf@gmail.com?subject=WEMS Enterprise Pricing">Contact sales</a>.</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- QA & Release Gate -->
+    <section class="installation" id="qa-gate" style="padding-top: 0;">
+        <div class="container">
+            <h2 class="section-title">QA & Release Gate</h2>
+            <div class="feature-card" style="max-width: 900px; margin: 0 auto; text-align: left;">
+                <h3 class="feature-title">Enterprise deploys are now QA-gated</h3>
+                <p class="feature-description" style="margin-bottom: 1rem;">
+                    Production updates are pulled into a clean deploy clone and only activated if the full test suite passes.
+                </p>
+                <ul class="pricing-features" style="margin-bottom: 0;">
+                    <li>Auto-pull timer runs every 2 minutes</li>
+                    <li>Fast-forward only (no unsafe merge deploys)</li>
+                    <li>Runs <code>pytest -q tests</code> before restart</li>
+                    <li>Automatic rollback to previous good commit on failure</li>
+                </ul>
             </div>
         </div>
     </section>
