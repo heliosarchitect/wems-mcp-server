@@ -600,25 +600,6 @@
         </div>
     </section>
 
-    <!-- QA & Release Gate -->
-    <section class="installation" id="qa-gate" style="padding-top: 0;">
-        <div class="container">
-            <h2 class="section-title">QA & Release Gate</h2>
-            <div class="feature-card" style="max-width: 900px; margin: 0 auto; text-align: left;">
-                <h3 class="feature-title">Enterprise deploys are now QA-gated</h3>
-                <p class="feature-description" style="margin-bottom: 1rem;">
-                    Production updates are pulled into a clean deploy clone and only activated if the full test suite passes.
-                </p>
-                <ul class="pricing-features" style="margin-bottom: 0;">
-                    <li>Auto-pull timer runs every 2 minutes</li>
-                    <li>Fast-forward only (no unsafe merge deploys)</li>
-                    <li>Runs <code>pytest -q tests</code> before restart</li>
-                    <li>Automatic rollback to previous good commit on failure</li>
-                </ul>
-            </div>
-        </div>
-    </section>
-
     <!-- Installation -->
     <section class="installation" id="installation">
         <div class="container">
@@ -628,6 +609,7 @@
                 <button class="tab-button active" onclick="showTab('pip')">pip install</button>
                 <button class="tab-button" onclick="showTab('docker')">Docker</button>
                 <button class="tab-button" onclick="showTab('source')">From Source</button>
+                <button class="tab-button" onclick="showTab('qa')">QA</button>
             </div>
             
             <div id="pip-tab" class="tab-content">
@@ -645,6 +627,18 @@ docker run -p 8080:8080 ghcr.io/heliosarchitect/wems-mcp-server:latest</div>
 cd wems-mcp-server
 pip install -r requirements.txt
 python wems_mcp_server.py</div>
+            </div>
+
+            <div id="qa-tab" class="tab-content" style="display: none;">
+                <div class="code-block"># Enterprise QA-gated deployment flow
+# 1) Auto-pull every 2 minutes (clean deploy clone)
+# 2) Fast-forward only updates
+# 3) Run full test gate before restart
+pytest -q tests
+
+# If tests fail:
+# - deployment auto-rolls back to previous good commit
+# - service is not switched to failing revision</div>
             </div>
         </div>
     </section>
