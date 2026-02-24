@@ -1,0 +1,9 @@
+[Unit]
+Description=WEMS Auto Update (pull + QA gate + restart)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=%h/Projects/wems-mcp-server
+ExecStart=%h/Projects/wems-mcp-server/scripts/wems_auto_update.sh
