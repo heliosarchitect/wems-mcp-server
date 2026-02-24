@@ -15,8 +15,8 @@ log() { echo "[$(ts)] $*" | tee -a "$LOG_FILE"; }
 cd "$REPO"
 
 # safety: don't auto-pull over local uncommitted work
-if [[ -n "$(git status --porcelain)" ]]; then
-  log "SKIP: working tree dirty; auto-update paused"
+if [[ -n "$(git status --porcelain --untracked-files=no)" ]]; then
+  log "SKIP: working tree dirty (tracked changes present); auto-update paused"
   exit 0
 fi
 
