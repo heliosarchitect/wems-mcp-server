@@ -25,6 +25,9 @@ from mcp.types import Tool, TextContent
 from wems_rate_limit import check_rate_limit, get_limit_display
 from wems_usage import record_api_call
 from wems_stripe_billing import emit_meter_event, units_for_tool
+from wems_trial_messaging import emit_trial_lifecycle_message
+from wems_pricing_checkout import get_pricing_checkout_surface, validate_checkout_surface
+from wems_upgrade_cta import build_upgrade_cta, threshold_trigger
 
 
 # ─── Tier Definitions ────────────────────────────────────────────────────────
@@ -32,6 +35,21 @@ from wems_stripe_billing import emit_meter_event, units_for_tool
 TIER_FREE = "free"
 TIER_PREMIUM = "premium"
 TIER_ENTERPRISE = "enterprise"
+
+SUPPORTED_ALERT_TYPES = [
+    "earthquake",
+    "solar",
+    "volcano",
+    "tsunami",
+    "hurricane",
+    "wildfire",
+    "severe_weather",
+    "floods",
+    "air_quality",
+    "threat_advisories",
+    "space_weather_alerts",
+    "drought_status",
+]
 
 TIER_LIMITS = {
     TIER_FREE: {
@@ -224,8 +242,11 @@ def _tier_limits(tier: str) -> Dict[str, Any]:
     return TIER_LIMITS.get(tier, TIER_LIMITS[TIER_FREE])
 
 
-def _upgrade_message(feature: str) -> str:
-    """Generate a tasteful upgrade prompt."""
+def _upgrade_message(feature: str, rate_key: str = "anonymous") -> str:
+    """Generate a contextual premium-gate upgrade prompt."""
+    cta = build_upgrade_cta(trigger="premium_feature_attempt", rate_key=rate_key, feature=feature)
+    if cta:
+        return cta
     return (
         f"\n\n─── 🔒 ───\n"
         f"{feature} is available on WEMS Premium ($24.99/mo).\n"
@@ -257,6 +278,7 @@ class WemsServer:
         self.feature_flags = {
             "multi_source_confidence_fusion": self._env_flag("WEMS_FEATURE_MULTI_SOURCE_CONFIDENCE_FUSION", False)
         }
+        self._pending_upgrade_cta: Optional[str] = None
         
         # Register MCP tools
         self._register_tools()
@@ -284,7 +306,13 @@ class WemsServer:
                     "volcano": {"alert_levels": ["WARNING", "WATCH"]},
                     "tsunami": {"enabled": True},
                     "hurricane": {"enabled": True},
-                    "wildfire": {"enabled": True}
+                    "wildfire": {"enabled": True},
+                    "severe_weather": {"enabled": True},
+                    "floods": {"enabled": True},
+                    "air_quality": {"enabled": True},
+                    "threat_advisories": {"enabled": True},
+                    "space_weather_alerts": {"enabled": True},
+                    "drought_status": {"enabled": True},
                 }
             }
     
@@ -296,17 +324,26 @@ class WemsServer:
             
             # Check rate limit
             rate_result = check_rate_limit(rate_key, self.tier)
-            
+
             if not rate_result["allowed"]:
                 remaining_time = rate_result.get("reset_time", 0) - time.time()
                 remaining_minutes = int(remaining_time / 60) if remaining_time > 0 else 0
-                
+
                 limit_info = get_limit_display(self.tier)
-                return (f"🚫 **Rate Limit Exceeded**\n\n"
-                       f"Current tier: {limit_info}\n"
-                       f"Try again in {remaining_minutes} minutes.\n\n"
-                       f"Upgrade to Premium for higher limits: https://wems.dev/premium")
-            
+                cta = build_upgrade_cta(trigger="rate_limit_exceeded", rate_key=rate_key)
+                return (
+                    f"🚫 **Rate Limit Exceeded**\n\n"
+                    f"Current tier: {limit_info}\n"
+                    f"Try again in {remaining_minutes} minutes."
+                    f"{cta}"
+                )
+
+            # Threshold CTA (soft prompt) for free-tier usage ramp.
+            if self.tier == TIER_FREE:
+                trigger = threshold_trigger(rate_result.get("count", 0), rate_result.get("limit", 0))
+                if trigger:
+                    self._pending_upgrade_cta = build_upgrade_cta(trigger=trigger, rate_key=rate_key)
+
             # Record successful API call for usage tracking
             record_api_call(
                 license_key=self.api_key if self.api_key else None,
@@ -319,6 +356,17 @@ class WemsServer:
             try:
                 units = units_for_tool(tool_name)
                 emit_meter_event(self.api_key if self.api_key else "anonymous", tool_name, units=units)
+            except Exception:
+                pass
+
+            # Best-effort trial lifecycle messaging hooks (day 3/10/13).
+            try:
+                emit_trial_lifecycle_message(
+                    api_key=self.api_key if self.api_key else "anonymous",
+                    tier=self.tier,
+                    tool_name=tool_name,
+                    rate_remaining=rate_result.get("remaining") if isinstance(rate_result, dict) else None,
+                )
             except Exception:
                 pass
             
@@ -341,6 +389,19 @@ class WemsServer:
             )
         except Exception as e:
             print(f"Warning: Usage tracking error: {e}")
+
+    def _attach_pending_upgrade_cta(self, response: List[TextContent]) -> List[TextContent]:
+        """Attach a queued contextual CTA to the first text block, then clear it."""
+        if not self._pending_upgrade_cta:
+            return response
+
+        try:
+            if response and getattr(response[0], "type", None) == "text":
+                response[0].text += self._pending_upgrade_cta
+        finally:
+            self._pending_upgrade_cta = None
+
+        return response
 
     async def _fetch_json_with_contract(
         self,
@@ -710,6 +771,14 @@ class WemsServer:
                         }
                     }
                 ),
+                Tool(
+                    name="get_pricing_checkout_surface",
+                    description="Return current pricing + checkout surface metadata and readiness diagnostics",
+                    inputSchema={
+                        "type": "object",
+                        "properties": {}
+                    }
+                ),
             ]
             
             # Premium-tier tools
@@ -750,7 +819,7 @@ class WemsServer:
                         "properties": {
                             "alert_type": {
                                 "type": "string",
-                                "enum": ["earthquake", "solar", "volcano", "tsunami"]
+                                "enum": SUPPORTED_ALERT_TYPES
                             },
                             "config": {
                                 "type": "object",
@@ -799,41 +868,50 @@ class WemsServer:
             
             try:
                 if name == "check_earthquakes":
-                    return await self._check_earthquakes(**arguments)
+                    response = await self._check_earthquakes(**arguments)
                 elif name == "check_solar":
-                    return await self._check_solar(**arguments)
+                    response = await self._check_solar(**arguments)
                 elif name == "check_volcanoes":
-                    return await self._check_volcanoes(**arguments)
+                    response = await self._check_volcanoes(**arguments)
                 elif name == "check_tsunamis":
-                    return await self._check_tsunamis(**arguments)
+                    response = await self._check_tsunamis(**arguments)
                 elif name == "check_hurricanes":
-                    return await self._check_hurricanes(**arguments)
+                    response = await self._check_hurricanes(**arguments)
                 elif name == "check_wildfires":
-                    return await self._check_wildfires(**arguments)
+                    response = await self._check_wildfires(**arguments)
                 elif name == "check_severe_weather":
-                    return await self._check_severe_weather(**arguments)
+                    response = await self._check_severe_weather(**arguments)
                 elif name == "check_floods":
-                    return await self._check_floods(**arguments)
+                    response = await self._check_floods(**arguments)
                 elif name == "check_air_quality":
-                    return await self._check_air_quality(**arguments)
+                    response = await self._check_air_quality(**arguments)
                 elif name == "check_threat_advisories":
-                    return await self._check_threat_advisories(**arguments)
+                    response = await self._check_threat_advisories(**arguments)
                 elif name == "check_space_weather_alerts":
-                    return await self._check_space_weather_alerts(**arguments)
+                    response = await self._check_space_weather_alerts(**arguments)
+                elif name == "get_pricing_checkout_surface":
+                    surface = get_pricing_checkout_surface()
+                    readiness = validate_checkout_surface(surface)
+                    response = [TextContent(type="text", text=json.dumps({"surface": surface, "readiness": readiness}, indent=2))]
                 elif name == "check_drought_status":
                     if self.tier not in [TIER_PREMIUM, TIER_ENTERPRISE]:
-                        return [TextContent(type="text", text=f"🔒 US Drought Monitor requires WEMS Premium.{_upgrade_message('Drought status monitoring')}")] 
-                    return await self._check_drought_status(**arguments)
+                        response = [TextContent(type="text", text=f"🔒 US Drought Monitor requires WEMS Premium.{_upgrade_message('Drought status monitoring', rate_key=self.api_key if self.api_key else 'anonymous')}")]
+                    else:
+                        response = await self._check_drought_status(**arguments)
                 elif name == "configure_alerts":
                     if self.tier not in [TIER_PREMIUM, TIER_ENTERPRISE]:
-                        return [TextContent(type="text", text=f"🔒 Custom alert configuration requires WEMS Premium.{_upgrade_message('Custom alert thresholds')}")]
-                    return await self._configure_alerts(**arguments)
+                        response = [TextContent(type="text", text=f"🔒 Custom alert configuration requires WEMS Premium.{_upgrade_message('Custom alert thresholds', rate_key=self.api_key if self.api_key else 'anonymous')}")]
+                    else:
+                        response = await self._configure_alerts(**arguments)
                 elif name == "fuse_multi_source_incidents":
                     if not self.feature_flags.get("multi_source_confidence_fusion"):
-                        return [TextContent(type="text", text="Feature disabled: set WEMS_FEATURE_MULTI_SOURCE_CONFIDENCE_FUSION=true to enable fusion")]
-                    return await self._fuse_multi_source_incidents(**arguments)
+                        response = [TextContent(type="text", text="Feature disabled: set WEMS_FEATURE_MULTI_SOURCE_CONFIDENCE_FUSION=true to enable fusion")]
+                    else:
+                        response = await self._fuse_multi_source_incidents(**arguments)
                 else:
-                    return [TextContent(type="text", text=f"Unknown tool: {name}")]
+                    response = [TextContent(type="text", text=f"Unknown tool: {name}")]
+
+                return self._attach_pending_upgrade_cta(response)
             except Exception as e:
                 # Record API error for tracking
                 self._record_api_error(name, str(e))
@@ -1786,11 +1864,13 @@ class WemsServer:
 
     async def _configure_alerts(self, alert_type: str, config: Dict[str, Any]) -> List[TextContent]:
         """Update alert configuration (premium only)."""
-        if alert_type not in self.config.get("alerts", {}):
+        if alert_type not in SUPPORTED_ALERT_TYPES:
             return [TextContent(type="text", text=f"❌ Unknown alert type: {alert_type}")]
-        
-        self.config["alerts"][alert_type].update(config)
-        
+
+        alerts = self.config.setdefault("alerts", {})
+        alerts.setdefault(alert_type, {})
+        alerts[alert_type].update(config)
+
         return [TextContent(
             type="text", 
             text=f"✅ Updated {alert_type} alert configuration: {config}"

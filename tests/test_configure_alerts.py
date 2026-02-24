@@ -88,6 +88,16 @@ class TestConfigureAlerts:
         assert wems_server.config["alerts"]["tsunami"]["regions"] == ["pacific"]
     
     @pytest.mark.asyncio
+    async def test_configure_new_alert_types_supported(self, wems_server):
+        """Alert configuration should support all implemented hazard families."""
+        result = await wems_server._configure_alerts("air_quality", {"enabled": True, "webhook": "https://new-webhook.example.com/air"})
+
+        assert_textcontent_result(result)
+        assert "Updated air_quality alert configuration" in result[0].text
+        assert wems_server.config["alerts"]["air_quality"]["enabled"] is True
+        assert wems_server.config["alerts"]["air_quality"]["webhook"] == "https://new-webhook.example.com/air"
+
+    @pytest.mark.asyncio
     async def test_configure_alerts_unknown_type(self, wems_server):
         """Test configuring alerts for unknown alert type."""
         result = await wems_server._configure_alerts("unknown_type", {"setting": "value"})
